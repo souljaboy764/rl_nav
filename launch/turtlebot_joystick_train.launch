@@ -10,6 +10,7 @@
 	<node name="turtlebot_nav" pkg="turtlebot_nav" type="turtlebot_nav" output="screen" required="true">
 		<param name="mode" type="string" value="TRAIN" />
 		<param name="num_episodes" type="int" value="20" />
+		<param name="max_steps" type="int" value="1000" />
 	</node>
 
 	

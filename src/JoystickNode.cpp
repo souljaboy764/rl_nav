@@ -98,7 +98,13 @@ JoystickNode::JoystickNode()
 	ros::NodeHandle p_nh("~");
 	p_nh.getParam("mode", MODE);
 	p_nh.getParam("num_episodes", NUM_EPISODES);
-	cout<<MODE<<" "<<NUM_EPISODES<<endl;
+	p_nh.getParam("max_steps", MAX_STEPS);
+	
+	if(MODE.length())
+	{
+		state = 1;
+		init_pub.publish(std_msgs::Empty());
+	}
 }
 
 JoystickNode::~JoystickNode()
@@ -378,7 +384,7 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 			episodeList.push_back(episode);
 			episode.clear();
 
-			if(episodeList.size()==NUM_EPISODES)
+			if(episodeList.size()==NUM_EPISODES or num_steps >= MAX_STEPS)
 			{	
 				if(!MODE.compare("TRAIN"))
 				{
@@ -468,6 +474,7 @@ void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 			else
 				tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction(prevPointCloud);
 			episode.push_back(lastRLInput);
+			num_steps++;
 	/*
 			//Thresholded random aligning with global path
 			vector<vector<float> > possibleTrajs, possibleInp;

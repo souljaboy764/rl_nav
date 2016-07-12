@@ -1,5 +1,5 @@
 <launch>
-	<arg name="world_file"  default="$(find turtlebot_nav)/launch/myworld.world"/>
+	<arg name="world_file"  default="$(find turtlebot_nav)/launch/include/myworld.world"/>
 
   <arg name="base"      value="$(optenv TURTLEBOT_BASE kobuki)"/> <!-- create, roomba -->
   <arg name="battery"   value="$(optenv TURTLEBOT_BATTERY /proc/acpi/battery/BAT0)"/>  <!-- /proc/acpi/battery/BAT0 --> 
@@ -13,7 +13,7 @@
     <arg name="gui" value="$(arg gui)" />
     <arg name="world_name" value="$(arg world_file)"/>
   </include>
-  <include file="$(find turtlebot_gazebo)/launch/includes/$(arg base).launch.xml">
+  <include file="$(find turtlebot_nav)/launch/include/$(arg base).launch.xml">
     <arg name="base" value="$(arg base)"/>
     <arg name="stacks" value="$(arg stacks)"/>
     <arg name="3d_sensor" value="$(arg 3d_sensor)"/>

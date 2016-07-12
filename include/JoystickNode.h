@@ -38,7 +38,7 @@ private:
 	enum {LH, LV, LT, RH, RV, RT, DH, DV}; //joystick axes
 	
 	string MODE;
-	int NUM_EPISODES;
+	int NUM_EPISODES, MAX_STEPS;
 
 	geometry_msgs::PoseWithCovarianceStamped pose, cpose;
 	geometry_msgs::Twist vel;
@@ -52,7 +52,7 @@ private:
 
 
 	string robotName;
-	int state, breakCount, num_broken, num_inits;
+	int state, breakCount, num_broken, num_inits, num_steps;
 	vector<float> lastCommand, lastRLInput; //last command sent to the planner
 	vector<vector<float> > episode;
 	vector<vector<vector<float> > > episodeList;
