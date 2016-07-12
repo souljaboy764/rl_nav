@@ -386,7 +386,6 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 
 			if(episodeList.size()==NUM_EPISODES or num_steps >= MAX_STEPS)
 			{
-				cout<<"PLEASE"<<endl;	
 				if(!MODE.compare("TRAIN"))
 				{
 					learner.episodeUpdate(episodeList);
