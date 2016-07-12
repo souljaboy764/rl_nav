@@ -100,7 +100,7 @@ JoystickNode::JoystickNode()
 	p_nh.getParam("num_episodes", NUM_EPISODES);
 	p_nh.getParam("max_steps", MAX_STEPS);
 	
-	if(MODE.length())
+	if(MODE.length()>0)
 	{
 		state = 1;
 		init_pub.publish(std_msgs::Empty());
@@ -385,11 +385,14 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 			episode.clear();
 
 			if(episodeList.size()==NUM_EPISODES or num_steps >= MAX_STEPS)
-			{	
+			{
+				cout<<"PLEASE"<<endl;	
 				if(!MODE.compare("TRAIN"))
 				{
 					learner.episodeUpdate(episodeList);
+					episodeList.clear();
 					rlRatio+=10;
+					cout<<"rlRatio: "<<rlRatio<<endl;
 					if(rlRatio==90)
 						ros::shutdown();	
 				}
