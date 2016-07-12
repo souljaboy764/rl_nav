@@ -12,7 +12,8 @@ class ErrorNode(object):
 		pose_sub = rospy.Subscriber("/vslam/pose_world", PoseWithCovarianceStamped, self.receivePose)
 
 	def receivePose(self, pose):
-		print linalg.norm(pose.pose.covariance)
+		#print linalg.norm(pose.pose.covariance)
+		print trace(reshape(pose.pose.covariance,(6,6)))
 
 rospy.init_node('ErrorNode')
 ErrorNode()

@@ -176,7 +176,7 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 		just_init=false;
 		num_inits++;
 		orientation = Helper::getPoseOrientation(pose.pose.pose.orientation);
-		cout<<orientation[0]<<" "<<orientation[1]<<" "<<orientation[2]<<" "<<(orientation[0]-3.14)*(orientation[0]-3.14)<<endl;
+		//cout<<orientation[0]<<" "<<orientation[1]<<" "<<orientation[2]<<" "<<(orientation[0]-3.14)*(orientation[0]-3.14)<<endl;
 		if((orientation[0]-3.14)*(orientation[0]-3.14) > 0.003)
 			init_pub.publish(std_msgs::Empty());
 		else
@@ -189,8 +189,11 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 	else
 		initialized = true;
 
-	if(sqrt(inner_product(pose.pose.covariance.begin(), pose.pose.covariance.end(), pose.pose.covariance.begin(), 0.0)) > 0.04)
+	if(sqrt(inner_product(pose.pose.covariance.begin(), pose.pose.covariance.end(), pose.pose.covariance.begin(), 0.0)) > 0.03)
+	{
+		cout<<"BAD EXTIMATE!!!"<<endl;	
 		num_broken++;
+	}
 	else if(num_broken>0)
 		num_broken--;
 	
@@ -239,7 +242,7 @@ void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
 {
 	geometry_msgs::Twist command;
 	if(joyPtr->buttons[POWER] and !joy.buttons[POWER])
-		cout<< boolalpha << initialized << " " << breakCount << " " << rlRatio << endl;
+		cout << breakCount << " " << rlRatio << " " << num_steps << endl;
 /*	if((joyPtr->axes[DH] and !joy.axes[DH]) and joyPtr->axes[DH] != joy.axes[DH])
 	{
 		if(joyPtr->axes[DH]==1)
@@ -362,14 +365,14 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 		pthread_mutex_lock(&ptam_mutex);
 		info = ptamInfo;
 		pthread_mutex_unlock(&ptam_mutex);
-		
+		lastRLInput[3] = (info.trackingQuality)?2:0;
 		vector<unsigned int> discreteStateAction = learner.discretizeState(lastRLInput);
 		for(auto i: lastRLInput)
 			qFile<<i<<'\t';
 		for(auto i: discreteStateAction)
 			qFile<<i<<'\t';
 		qFile << pointCloud.points.size() << '\t' << prevQ << "\t" << ((info.trackingQuality)?2:0) << '\n';
-		
+		episode.push_back(lastRLInput);
 		//learner.updateQ(lastRLInput, next.second);
 
 		if(num_broken>3) 
@@ -391,9 +394,14 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 					learner.episodeUpdate(episodeList);
 					episodeList.clear();
 					rlRatio+=10;
+					num_steps = 0;
 					cout<<"rlRatio: "<<rlRatio<<endl;
 					if(rlRatio==90)
-						ros::shutdown();	
+						//ros::shutdown();	
+					{
+						cout<<"SWITCHING TO TESTING PHASE"<<endl;
+						MODE = "TEST";
+					}
 				}
 				else if(!MODE.compare("TEST"))
 				{
@@ -401,7 +409,6 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 					ros::shutdown();
 				}
 			}
-
 			init_pub.publish(std_msgs::Empty());
 		}
 
@@ -475,7 +482,6 @@ void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 				tie(lastCommand, lastRLInput, prevQ) = learner.getBestQStateAction(lastCommand, prevPointCloud);
 			else
 				tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction(prevPointCloud);
-			episode.push_back(lastRLInput);
 			num_steps++;
 	/*
 			//Thresholded random aligning with global path

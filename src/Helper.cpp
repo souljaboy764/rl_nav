@@ -184,8 +184,8 @@ void Helper::saveFeatureExpectation(vector<vector<vector<float> > > episodeList)
 	for(vector<vector<vector<float> > >::iterator episode = episodeList.begin(); episode!=episodeList.end(); ++episode)
 		for(vector<vector<float> >::iterator rlStep = episode->begin(); rlStep!=episode->end(); ++rlStep)
 		{
-			for(vector<float>::iterator it=rlStep->begin(); it!=rlStep->end(); ++it)
+			for(vector<float>::iterator it=rlStep->begin(); it!=rlStep->end()-1; ++it)
 				feFile<< *it << '\t';
-			feFile <<endl;
+			feFile << rlStep->back()<<endl;
 		}
 }
