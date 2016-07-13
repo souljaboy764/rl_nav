@@ -368,13 +368,10 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 		pthread_mutex_lock(&ptam_mutex);
 		info = ptamInfo;
 		pthread_mutex_unlock(&ptam_mutex);
-		lastRLInput[3] = (num_broken < 3 and info.trackingQuality)?2:0;
-		vector<unsigned int> discreteStateAction = learner.discretizeState(lastRLInput);
+		lastRLInput[3] = (num_broken <= 3 and info.trackingQuality)?2:0;
 		for(auto i: lastRLInput)
 			qFile<<i<<'\t';
-		for(auto i: discreteStateAction)
-			qFile<<i<<'\t';
-		qFile << pointCloud.points.size() << '\t' << prevQ << "\t" << ((info.trackingQuality)?2:0) << '\n';
+		qFile << pointCloud.points.size() << '\t' << prevQ << "\t" << ((num_broken <= 3 and info.trackingQuality)?2:0) << '\n';
 		episode.push_back(lastRLInput);
 		//learner.updateQ(lastRLInput, next.second);
 
