@@ -99,7 +99,7 @@ JoystickNode::JoystickNode()
 	p_nh.getParam("mode", MODE);
 	p_nh.getParam("num_episodes", NUM_EPISODES);
 	p_nh.getParam("max_steps", MAX_STEPS);
-	cout<<"MODE: "<<MODE<<endl;
+	
 	if(MODE.length()>0)
 	{
 		state = 1;
@@ -155,7 +155,7 @@ void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 	twist.linear.x=-0.4;
 	clock_t t = clock();
 	ros::Rate r(10);
-	while(((float) (clock() - t))/CLOCKS_PER_SEC < 0.3)	
+	while(((float) (clock() - t))/CLOCKS_PER_SEC < 0.2)	
 	{
 		vel_pub.publish(twist);
 		r.sleep();
@@ -182,7 +182,7 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 		num_inits++;
 		orientation = Helper::getPoseOrientation(pose.pose.pose.orientation);
 		orientation[0] = abs(orientation[0]);
-		cout<<orientation[0]<<" "<<orientation[1]<<" "<<orientation[2]<<" "<<(orientation[0]-3.14)*(orientation[0]-3.14)<<endl;
+		//cout<<orientation[0]<<" "<<orientation[1]<<" "<<orientation[2]<<" "<<(orientation[0]-3.14)*(orientation[0]-3.14)<<endl;
 		if((orientation[0]-3.14)*(orientation[0]-3.14) > 0.003)
 			init_pub.publish(std_msgs::Empty());
 		else
@@ -200,7 +200,6 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 	//float trace = pose.pose.covariance[0] + pose.pose.covariance[7] + pose.pose.covariance[14] + pose.pose.covariance[21] + pose.pose.covariance[28] + pose.pose.covariance[35];
 	//if(sqrt(inner_product(pose.pose.covariance.begin(), pose.pose.covariance.end(), pose.pose.covariance.begin(), 0.0)) > 0.03)
 	//if(trace > 0.03)
-	cout<<initY<<" "<<pose.pose.pose.position.y<<" "<<(initY - pose.pose.pose.position.y)*(initY - pose.pose.pose.position.y) <<endl;
 	if((initY - pose.pose.pose.position.y)*(initY - pose.pose.pose.position.y) >=0.15)
 		num_broken++;
 	else if(num_broken>0)
