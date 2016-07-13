@@ -59,6 +59,7 @@ private:
 	bool badEstimate, just_init, initialized;
 	float rlRatio;
 	float prevQ; 	
+	float initY;
 	ofstream qFile;
 	
 	//Subscribers
