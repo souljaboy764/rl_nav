@@ -160,6 +160,7 @@ void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 	num_broken = 0;	
 	just_init=true;
 	initialized = false;
+	ros::Rate(1).sleep();
 	ptam_com_pub.publish(spaceString);	
 }
 
@@ -176,7 +177,7 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 		just_init=false;
 		num_inits++;
 		orientation = Helper::getPoseOrientation(pose.pose.pose.orientation);
-		//cout<<orientation[0]<<" "<<orientation[1]<<" "<<orientation[2]<<" "<<(orientation[0]-3.14)*(orientation[0]-3.14)<<endl;
+		cout<<orientation[0]<<" "<<orientation[1]<<" "<<orientation[2]<<" "<<(orientation[0]-3.14)*(orientation[0]-3.14)<<endl;
 		if((orientation[0]-3.14)*(orientation[0]-3.14) > 0.003)
 			init_pub.publish(std_msgs::Empty());
 		else
@@ -188,10 +189,11 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 	}
 	else
 		initialized = true;
-
-	if(sqrt(inner_product(pose.pose.covariance.begin(), pose.pose.covariance.end(), pose.pose.covariance.begin(), 0.0)) > 0.03)
+	float trace = pose.pose.covariance[0] + pose.pose.covariance[7] + pose.pose.covariance[14] + pose.pose.covariance[21] + pose.pose.covariance[28] + pose.pose.covariance[35];
+	//if(sqrt(inner_product(pose.pose.covariance.begin(), pose.pose.covariance.end(), pose.pose.covariance.begin(), 0.0)) > 0.03)
+	if(trace > 0.03)
 	{
-		cout<<"BAD EXTIMATE!!!"<<endl;	
+		//cout<<"BAD ESTIMATE!!!"<<endl;	
 		num_broken++;
 	}
 	else if(num_broken>0)
