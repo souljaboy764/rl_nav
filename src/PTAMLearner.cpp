@@ -47,25 +47,6 @@ tuple<vector<float>, vector<float>, float> PTAMLearner::getBestQStateAction(vect
 
 tuple<vector<float>, vector<float>, float> PTAMLearner::getRandomStateAction(pcl::PointCloud<pcl::PointXYZ> currentPointCloud)
 {
-	geometry_msgs::Pose robotWorldPose = Helper::getRobotWorldPose();
-	vector<double> angles = Helper::getPoseOrientation(robotWorldPose.orientation);
-	float angle_step = PI/20.0;
-	int num = 3, max_num = 7;
-	float angle = ((rand()%max_num) - num)* angle_step;
-	float dir = (rand()%2)?1.0:-1.0;
-	
-	vector<float> inp = {0.0,0.0,0.0, 
-						 dir*cos(angle), sin(angle), dir*tan(angle),
-						 0.0,0.0,0.0,0.0,0.0,0.0,
-						 dir,0.0,1.5};
-	float x = robotWorldPose.position.x + dir*cos(angles[2] + dir*angle), y = robotWorldPose.position.y + dir*sin(angles[2] + dir*angle);
-	if(Helper::inLimits(x,y))
-	{
-		return getAction(inp, currentPointCloud);
-		/*rl_input = getRLInput(inp, currentPointCloud);
-		Q = getQ(rl_input);
-		return make_tuple(inp,rl_input,Q);*/
-	}
-		
-	return getRandomStateAction(currentPointCloud);
+	vector<vector<float> > trajectories = Helper::getTrajectories();	
+	return getAction(trajectories[rand()%trajectories.size()], currentPointCloud);
 }

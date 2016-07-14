@@ -141,32 +141,26 @@ bool Helper::inLimits(float x, float y)
 
 vector<vector<float> > Helper::getTrajectories()
 {
-	float angle = PI/180.0, num = 27, max_num = 55;
+	float angle = PI/90.0, num_angles = 14;
 	vector<vector<float> > inputs;
-	vector<double> angles = getPoseOrientation(robotWorldPose.orientation);
-/*	vector<float> inp1 = {0.0,0.0,0.0, 
-							 cos(float(i-3)*angle), sin(float(i-3)*angle), tan(float(i-3)*angle),
-							 0.0,0.0,0.0,0.0,0.0,0.0,
-							 1.0,0.0,1.5};
-	inputs.push_back(inp1);*/
-	//Generate 14 new positions
-	pair<int, int> startEnd =make_pair(0,max_num);
-	for(int i=startEnd.first;i<startEnd.second;i++)
+	vector<double> orientation = getPoseOrientation(robotWorldPose.orientation);
+	
+	for(float i=-num_angles*angle ; i<=num_angles*angle ; i+=angle)
 	{			
 		vector<float> inp = {0.0,0.0,0.0, 
-							 cos(float(i-num)*angle), sin(float(i-num)*angle), tan(float(i-num)*angle),
+							 cos(i), sin(i), tan(i),
 							 0.0,0.0,0.0,0.0,0.0,0.0,
 							 1.0,0.0,1.5};
-		float x = robotWorldPose.position.x + cos(angles[2] + float(i-num)*angle);
-		float y = robotWorldPose.position.y + sin(angles[2] + float(i-num)*angle);
+		float x = robotWorldPose.position.x + cos(orientation[2] + i);
+		float y = robotWorldPose.position.y + sin(orientation[2] + i);
 		if(inLimits(x,y))
 			inputs.push_back(inp);
 
 		inp[3] *= -1.0;
 		inp[5] *= -1.0;
 		inp[12] *= -1.0;
-		x = robotWorldPose.position.x - cos(angles[2] - float(i-num)*angle);
-		y = robotWorldPose.position.y - sin(angles[2] - float(i-num)*angle);
+		x = robotWorldPose.position.x - cos(orientation[2] - i);
+		y = robotWorldPose.position.y - sin(orientation[2] - i);
 		if(inLimits(x,y))
 			inputs.push_back(inp);
 	}
