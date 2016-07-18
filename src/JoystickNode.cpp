@@ -100,6 +100,11 @@ JoystickNode::JoystickNode()
 	p_nh.getParam("num_episodes", NUM_EPISODES);
 	p_nh.getParam("max_steps", MAX_STEPS);
 	
+	//while(!ros::service::waitForService("/gazebo/set_physics_properties"));
+		//cout<<boolalpha<< ros::service::exists("/gazebo/set_physics_properties",true)<<endl;
+
+	//cout<<"K DONE"<<endl;
+
 	if(MODE.length()>0)
 	{
 		state = 1;
@@ -362,6 +367,8 @@ void JoystickNode::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelSt
 {
 	pthread_mutex_lock(&gazeboModelState_mutex);	
 	robotWorldPose = modelStatesPtr->pose.back();
+	if(just_init and not robotName.length() and modelStatesPtr->name.back().length())
+		init_pub.publish(std_msgs::Empty());
 	robotName = modelStatesPtr->name.back();
 	pthread_mutex_unlock(&gazeboModelState_mutex);
 }

@@ -38,7 +38,7 @@ tuple<vector<float>, vector<float>, float> PTAMLearner::getBestQStateAction(vect
 		if(maxQ<Q)
 		{
 			maxQ = Q;
-			index = (inp - inputs.begin()) - adder;
+			index = inp - inputs.begin();
 		}
 	}
 
