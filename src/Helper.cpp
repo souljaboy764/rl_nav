@@ -49,7 +49,6 @@ void Helper::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPt
 {
 	pthread_mutex_lock(&pointCloud_mutex);
 	currentPointCloud = *pointCloudPtr;
-	cout<<"HELPER: "<<currentPointCloud.points.size()<<endl;
 	pthread_mutex_unlock(&pointCloud_mutex);
 }
 
@@ -145,8 +144,8 @@ vector<pcl::PointXYZ> Helper::pointCloudIntersection(pcl::PointCloud<pcl::PointX
 
 bool Helper::inLimits(float x, float y)
 {
-	return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and (x<3.6 or x>4.4 or (x>=3.6 and x<=4.4 and y>6.4)); // map 1
-	//return x>=-6 and x<=0 and y>=-1 and y<=3; //training map
+	//return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and (x<3.6 or x>4.4 or (x>=3.6 and x<=4.4 and y>6.4)); // map 1
+	return x>=-6 and x<=0 and y>=-1 and y<=3; //training map
 	//return true;
 }
 
@@ -199,17 +198,19 @@ vector<vector<vector<float> > > Helper::readFeatureExpectation(string fileName)
 {
 	vector<vector<vector<float> > > episodeList;
 	vector<vector<float> > episode;
-	fstream infile(fileName);
+	ifstream infile(fileName);
 	if(infile.good())
 	{
 		float dir, angle, fov, status;
-		while(!infile.eof())
+		while(infile)
 		{
 			infile >> dir >> angle >> fov >> status;
 			episode.push_back({dir, angle, fov, status});
+
 			if(!status)
 			{
-				episodeList.push_back(episode);
+				if(!episodeList.size() or (episodeList.size() and episode.back() != episodeList.back().back()))
+					episodeList.push_back(episode);
 				episode.clear();
 			}
 		}

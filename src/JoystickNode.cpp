@@ -56,8 +56,14 @@ JoystickNode::JoystickNode()
 
 	expectedPathClient = nh.serviceClient<turtlebot_nav::ExpectedPath>("/planner/global/expected_path");
 	
+	ifstream ratioFile("ratioFile.txt");
+	ratioFile >> rlRatio;
+	ratioFile.close();
+
+	if(!rlRatio)
+		rlRatio = 10;
+
 	state = 0;
-	rlRatio = 10;
 	breakCount = 0;
 	joy.buttons = vector<int>(11,0);
 	joy.axes = vector<float>(8,0);
@@ -101,7 +107,7 @@ JoystickNode::JoystickNode()
 	p_nh.getParam("num_episodes", NUM_EPISODES);
 	p_nh.getParam("max_steps", MAX_STEPS);
 	
-	//episodeList = Helper::readFeatureExpectation("tempfeFile.txt");
+	episodeList = Helper::readFeatureExpectation("tempfeFile.txt");
 
 	if(MODE.length()>0)
 	{
@@ -113,13 +119,18 @@ JoystickNode::JoystickNode()
 JoystickNode::~JoystickNode()
 {
 	qFile.close();
+	
 	ros::NodeHandle p_nh("~");
 	p_nh.deleteParam("mode");
 	p_nh.deleteParam("num_episodes");
 	p_nh.deleteParam("max_steps");
-	/*if(episodeList.back().back().back())
-		episodeList.pop_back();
-	Helper::saveFeatureExpectation(episodeList, "tempfeFile.txt");*/
+
+	remove("tempfeFile.txt");
+	Helper::saveFeatureExpectation(episodeList, "tempfeFile.txt");
+
+	ofstream ratioFile("ratioFile.txt");
+	ratioFile << ((rlRatio==90)?10:rlRatio) << endl;
+	ratioFile.close();
 }
 
 //-----------------------PTAM Initializer callback-----------------------------------------
@@ -131,8 +142,6 @@ void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 	geometry_msgs::Twist twist;
 	initY = 0;
 	planner_reset_pub.publish(std_msgs::Empty());//stop planner
-
-	//qFile<<"NEW SESSION AT "<<ros::Time::now()<<'\n';
 
 	resetString.data = "r";
 	spaceString.data = "Space";
@@ -150,18 +159,18 @@ void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 	newState.pose.position.z = 0;
 	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, PI/4.0);*/
 
-	//map 2
+/*	//map 2
 	newState.pose.position.x = 2;
 	newState.pose.position.y = 2;
 	newState.pose.position.z = 0;
-	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, 0.0);
-/*
+	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, 0.0);*/
+
 	//training map
-	newState.pose.position.x = 2 + 1.5*cos(1.0472);
-	newState.pose.position.y = 1 + 1.5*sin(1.0472);
+	newState.pose.position.x = -1;
+	newState.pose.position.y = 1;
 	newState.pose.position.z = 0;
 	
-	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, 1.0472);*/
+	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, 0.4);
 
 	gazebo_state_reset_pub.publish(newState);
 	ptam_com_pub.publish(spaceString);
@@ -367,7 +376,6 @@ void JoystickNode::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointC
 {
 	pthread_mutex_lock(&pointCloud_mutex);
 	pointCloud = *pointCloudPtr;
-	cout<<"JOYSTICK: "<<pointCloud.points.size()<<endl;
 	pthread_mutex_unlock(&pointCloud_mutex);
 }
 
@@ -441,7 +449,7 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 				else if(!MODE.compare("TEST"))
 				{
 					Helper::saveFeatureExpectation(episodeList, "feFile.txt");
-					//remove("tempfeFile.txt");
+					remove("tempfeFile.txt");
 					ros::shutdown();
 				}
 			}
