@@ -57,30 +57,32 @@ class Helper
 		}
 	};
 
-	static pthread_mutex_t pose_mutex, info_mutex, gazeboModelState_mutex;
+	static pthread_mutex_t pose_mutex, info_mutex, gazeboModelState_mutex, pointCloud_mutex;
 
 	static geometry_msgs::PoseWithCovarianceStamped pose;
 	static ptam_com::ptam_info ptamInfo;
 	static geometry_msgs::Pose robotWorldPose;
+	static pcl::PointCloud<pcl::PointXYZ> currentPointCloud;
 
 	ros::NodeHandle nh;
-	ros::Subscriber pose_sub, info_sub, gazeboModelStates_sub;
+	ros::Subscriber pose_sub, info_sub, gazeboModelStates_sub, pointCloud_sub;
 	static ros::ServiceClient posePointCloudClient;
 
 	void poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr);
 	void ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr);	
 	void gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr);
+	void pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPtr);	
 
 public:
 	Helper();
 	static pcl::PointCloud<pcl::PointXYZ> getPointCloud(vector<float> input);
-	static vector<float> getRLInput(vector<float> input, pcl::PointCloud<pcl::PointXYZ> currentPointCloud);
+	static vector<float> getRLInput(vector<float> input);
 	static vector<double> getPoseOrientation(geometry_msgs::Quaternion quat);
 	static geometry_msgs::PoseStamped getPoseFromInput(vector<float> input, geometry_msgs::PoseWithCovarianceStamped pose);
-	static vector<pcl::PointXYZ> pointCloudIntersection(pcl::PointCloud<pcl::PointXYZ> currentPointCloud, pcl::PointCloud<pcl::PointXYZ> nextPointCloud);
+	static vector<pcl::PointXYZ> pointCloudIntersection(pcl::PointCloud<pcl::PointXYZ> pointCloudA, pcl::PointCloud<pcl::PointXYZ> pointCloudB);
 	static bool inLimits(float x, float y);
 	static vector<vector<float> > getTrajectories();
 	static geometry_msgs::Pose getRobotWorldPose();
-	static void saveFeatureExpectation(vector<vector<vector<float> > > episodeList);
-	
+	static void saveFeatureExpectation(vector<vector<vector<float> > > episodeList, string fileName);
+	static vector<vector<vector<float> > > readFeatureExpectation(string fileName);
 };

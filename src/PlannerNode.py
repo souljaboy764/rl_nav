@@ -28,11 +28,12 @@ class PLanner2D(object):
 		# 			   [4.0,7.0,0.0,14.0],
 		# 			   [6.0,4.0,tan(-pi/3.0),21.0],
 		# 			   [6.0, 2.0,tan(-pi/8.0),28.0]]
-		self.points = [[4.0,7.0,0.0,14.0],[6.0, 2.0,-tan(pi/4.0),28.0]]
+		#self.points = [[4.0,7.0,0.0,14.0],[6.0, 2.0,-tan(pi/4.0),28.0]] #map 1
+		self.points = [[4.0,4.0,tan(pi/4.0),14.0],[7.0,6.0,0.0,28.0]] #map 2
 		self.robotState = Pose()
 
 		self.inp_sub = rospy.Subscriber('/planner/input', Float32MultiArray, self.receiveInput)
-		self.inp_mul_sub = rospy.Subscriber('/planner/input/global', Empty, self.receiveInputMultiple)
+		self.inp_mul_sub = rospy.Subscriber('/planner/input/global', Empty, self.receiveInputGlobal)
 		self.reset_sub = rospy.Subscriber('/planner/reset', Empty, self.receiveBreak)
 		gazeboModelStates_sub = rospy.Subscriber("/gazebo/model_states", ModelStates, self.receiveGazeboModelStates)
 		self.points_done = 0
@@ -104,7 +105,7 @@ class PLanner2D(object):
 		if pi/2.0<=angle<pi:
 			return 1
 
-	def receiveInputMultiple(self, empty):
+	def receiveInputGlobal(self, empty):
 		pose = [self.robotState.position.x, self.robotState.position.y, 
 				tan(euler_from_quaternion([ self.robotState.orientation.x,
 										self.robotState.orientation.y,

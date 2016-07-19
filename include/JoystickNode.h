@@ -98,7 +98,7 @@ private:
 	ros::Publisher init_pub, sendCommand_pub;
 
 	ros::NodeHandle nh;
-	//ros::ServiceClient posePointCloudClient, expectedPathClient;
+	ros::ServiceClient posePointCloudClient, expectedPathClient;
 	//tf::TransformListener listener;
 
 	PTAMLearner learner; //Q learning agent
@@ -130,7 +130,7 @@ private:
 	void ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr);	
 	void plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr);	
 	void gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr);
-	void globalPathCb(const std_msgs::Float32MultiArrayPtr arrayPtr);
+	void globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPtr);
 	void initCb(const std_msgs::EmptyPtr emptyPtr);
 	void sendCommandCb(const std_msgs::EmptyPtr emptyPtr);
 

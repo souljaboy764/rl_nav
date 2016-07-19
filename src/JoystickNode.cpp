@@ -8,6 +8,7 @@
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
+#include <cstdio>
 
 #include "Helper.h"
 #include "JoystickNode.h"
@@ -53,7 +54,7 @@ JoystickNode::JoystickNode()
 	init_pub = nh.advertise<std_msgs::Empty>("/rl/init",1);
 	sendCommand_pub = nh.advertise<std_msgs::Empty>("/rl/sendCommand",1);
 
-	//expectedPathClient = nh.serviceClient<turtlebot_nav::ExpectedPath>("/planner/global/expected_path");
+	expectedPathClient = nh.serviceClient<turtlebot_nav::ExpectedPath>("/planner/global/expected_path");
 	
 	state = 0;
 	rlRatio = 10;
@@ -93,23 +94,19 @@ JoystickNode::JoystickNode()
 	ptamInfo_sub = nh.subscribe("/vslam/info", 100, &JoystickNode::ptamInfoCb, this);
 	plannerStatus_sub = nh.subscribe("/planner/status", 100, &JoystickNode::plannerStatusCb, this);
 	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &JoystickNode::gazeboModelStatesCb, this);
-	globalPoints_sub = nh.subscribe("/planner/global/path", 100, &JoystickNode::globalPathCb, this);
+	globalPoints_sub = nh.subscribe("/planner/global/path", 100, &JoystickNode::globalNextPoseCb, this);
 
 	ros::NodeHandle p_nh("~");
 	p_nh.getParam("mode", MODE);
 	p_nh.getParam("num_episodes", NUM_EPISODES);
 	p_nh.getParam("max_steps", MAX_STEPS);
 	
-	//while(!ros::service::waitForService("/gazebo/set_physics_properties"));
-		//cout<<boolalpha<< ros::service::exists("/gazebo/set_physics_properties",true)<<endl;
-
-	//cout<<"K DONE"<<endl;
+	//episodeList = Helper::readFeatureExpectation("tempfeFile.txt");
 
 	if(MODE.length()>0)
 	{
 		state = 1;
 		init_pub.publish(std_msgs::Empty());
-		cout << "init from constructor" << endl;
 	}
 }
 
@@ -120,11 +117,15 @@ JoystickNode::~JoystickNode()
 	p_nh.deleteParam("mode");
 	p_nh.deleteParam("num_episodes");
 	p_nh.deleteParam("max_steps");
+	/*if(episodeList.back().back().back())
+		episodeList.pop_back();
+	Helper::saveFeatureExpectation(episodeList, "tempfeFile.txt");*/
 }
 
+//-----------------------PTAM Initializer callback-----------------------------------------
 void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 {
-	cout << "Initialization start" << endl;
+	
 	std_msgs::String resetString, spaceString;
 	gazebo_msgs::ModelState newState;
 	geometry_msgs::Twist twist;
@@ -149,12 +150,18 @@ void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 	newState.pose.position.z = 0;
 	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, PI/4.0);*/
 
+	//map 2
+	newState.pose.position.x = 2;
+	newState.pose.position.y = 2;
+	newState.pose.position.z = 0;
+	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, 0.0);
+/*
 	//training map
-	newState.pose.position.x = -1;
-	newState.pose.position.y = 1;
+	newState.pose.position.x = 2 + 1.5*cos(1.0472);
+	newState.pose.position.y = 1 + 1.5*sin(1.0472);
 	newState.pose.position.z = 0;
 	
-	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, 0.4);
+	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, 1.0472);*/
 
 	gazebo_state_reset_pub.publish(newState);
 	ptam_com_pub.publish(spaceString);
@@ -173,15 +180,16 @@ void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 	initialized = false;
 	ros::Rate(1).sleep();
 	ptam_com_pub.publish(spaceString);
-	cout << "Initialization end" << endl;	
+		
 }
 
+//-----------------------Receive PTAM pose of camera in world-----------------------------------------
 void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr)
 {
 	pthread_mutex_lock(&pose_mutex);
 	pose = *posePtr;
 	pose.header.frame_id = "world";
-	cout << "Pose call back start" << endl;
+	
 
 	vector<double> orientation;
 	ros::Rate r(10);
@@ -192,9 +200,8 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 		orientation = Helper::getPoseOrientation(pose.pose.pose.orientation);
 		orientation[0] = abs(orientation[0]);
 		//cout<<orientation[0]<<" "<<orientation[1]<<" "<<orientation[2]<<" "<<(orientation[0]-3.14)*(orientation[0]-3.14)<<endl;
-		if((orientation[0]-3.14)*(orientation[0]-3.14) > 0.003){
+		if((orientation[0]-3.14)*(orientation[0]-3.14) > 0.003)
 			init_pub.publish(std_msgs::Empty());
-			cout << "init from poseCb if init unsuccesful" << endl;}
 		else
 		{
 			initialized = true;
@@ -222,22 +229,22 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 	ps.header = pose.header;
 	ps.pose = pose.pose.pose;
 	pose_pub.publish(ps);
-	cout << "Pose call back end" << endl;
-		
+	
 	pthread_mutex_unlock(&pose_mutex);
 }
 
-void JoystickNode::globalPathCb(const std_msgs::Float32MultiArrayPtr arrayPtr)
+//-----------------------Receive next expected robot pose w.r.t. current pose along global path-----------------------------------------
+void JoystickNode::globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPtr)
 {
 	pthread_mutex_lock(&globalPlanner_mutex);
 	vector<float> input = arrayPtr->data;
-	cout << "global path callback start" << endl;
+	
 	//float Q = learner.getQ(learner.getRLInput(input, pointCloud));
-	float Q = get<2>(learner.getAction(input,pointCloud));
+	float Q = get<2>(learner.getAction(input));//,pointCloud));
 	geometry_msgs::PoseStamped ps;
 	ps = Helper::getPoseFromInput(input, pose);
 	expected_pub.publish(ps);
-	if(Q<Q_THRESH)
+	/*if(Q<Q_THRESH)
 	{
 		cout<<robotWorldPose.position.x<<" "<<robotWorldPose.position.y<<" "<<Helper::getPoseOrientation(robotWorldPose.orientation)[2]<<endl;
 		cout<<Q<< " " ;
@@ -246,13 +253,17 @@ void JoystickNode::globalPathCb(const std_msgs::Float32MultiArrayPtr arrayPtr)
 		planner_reset_pub.publish(std_msgs::Empty());//stop planner
 		//state  = 0;
 		state = 1;
-		sendCommand_pub.publish(std_msgs::Empty());
-	}
+		if((robotWorldPose.position.x - 7)*(robotWorldPose.position.x - 7) + (robotWorldPose.position.y - 6)*(robotWorldPose.position.y - 6) > 0.25)
+			sendCommand_pub.publish(std_msgs::Empty());
+		else //goal reached
+			planner_reset_pub.publish(std_msgs::Empty()); 
+	}*/
 
-	cout << "global path callback end" << endl;
+	
 	pthread_mutex_unlock(&globalPlanner_mutex);
 }
 
+//-----------------------Receive PTAM pose of world in camera-----------------------------------------
 void JoystickNode::camPose(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr)
 {
 	pthread_mutex_lock(&cpose_mutex);
@@ -260,6 +271,7 @@ void JoystickNode::camPose(const geometry_msgs::PoseWithCovarianceStampedPtr pos
 	pthread_mutex_unlock(&cpose_mutex);
 }
 
+//-----------------------Receive joystick input-----------------------------------------
 void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
 {
 	geometry_msgs::Twist command;
@@ -309,7 +321,8 @@ void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
 	}
 	else if(joyPtr->buttons[START] and !joy.buttons[START]){
 		init_pub.publish(std_msgs::Empty());
-		cout << "init from start button press" << endl;}
+		
+	}
 	else if(joyPtr->buttons[A] and !state)
 	{
 		//send input to planner
@@ -341,7 +354,7 @@ void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
 	joy = *joyPtr;
 }
 
-
+//-----------------------Receive robot odometry-----------------------------------------
 void JoystickNode::odomCb(const nav_msgs::OdometryPtr odomPtr)
 {	
 	pthread_mutex_lock(&odom_mutex);
@@ -349,13 +362,16 @@ void JoystickNode::odomCb(const nav_msgs::OdometryPtr odomPtr)
 	pthread_mutex_unlock(&odom_mutex);
 }
 
+//-----------------------Receive PTAM point cloud-----------------------------------------
 void JoystickNode::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPtr)	
 {
 	pthread_mutex_lock(&pointCloud_mutex);
 	pointCloud = *pointCloudPtr;
+	cout<<"JOYSTICK: "<<pointCloud.points.size()<<endl;
 	pthread_mutex_unlock(&pointCloud_mutex);
 }
 
+//-----------------------Receive PTAM Info-----------------------------------------
 void JoystickNode::ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr)	
 {
 	pthread_mutex_lock(&ptam_mutex);
@@ -363,6 +379,7 @@ void JoystickNode::ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr)
 	pthread_mutex_unlock(&ptam_mutex);
 }
 
+//-----------------------Receive Gazebo Models data-----------------------------------------
 void JoystickNode::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr)
 {
 	pthread_mutex_lock(&gazeboModelState_mutex);	
@@ -373,10 +390,11 @@ void JoystickNode::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelSt
 	pthread_mutex_unlock(&gazeboModelState_mutex);
 }
 
+//-----------------------Receive Planner status after executing local action-----------------------------------------
 void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 {
 	pthread_mutex_lock(&plannerStatus_mutex);
-	cout << "planner status callback start" << endl;
+	
 	if(!(plannerStatusPtr->data.compare("DONE")))
 	{
 		breakCount++;
@@ -422,32 +440,34 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 				}
 				else if(!MODE.compare("TEST"))
 				{
-					Helper::saveFeatureExpectation(episodeList);
+					Helper::saveFeatureExpectation(episodeList, "feFile.txt");
+					//remove("tempfeFile.txt");
 					ros::shutdown();
 				}
 			}
 			init_pub.publish(std_msgs::Empty());
-			cout << "automatic init after breakage" << endl;
+			//planner_reset_pub.publish(std_msgs::Empty());//stop planner
 		}
 
-		else if(state)
+		else if(state==1)
 			sendCommand_pub.publish(std_msgs::Empty());
-		/*
-		if(state and breakCount==1)
+		
+		/*else if(state and breakCount==1)
 		{
 			state = 2;
 			breakCount = 0;
 			global_planner_pub.publish(std_msgs::Empty());
 		}
-		else if(state)
+		else if(state==2)
 		{
-		/*	turtlebot_nav::ExpectedPath expectedPath;
+			turtlebot_nav::ExpectedPath expectedPath;
 			expectedPathClient.call(expectedPath);
 			vector<float> poses = expectedPath.response.expectedPath.data;
 			vector<float> first(poses.begin(),poses.begin()+12), second(poses.begin()+12,poses.begin()+24), secondIP(poses.begin()+24,poses.end());
-			pcl::PointCloud<pcl::PointXYZ> firstPC = getPointCloud(first), secondPC = getPointCloud(second), currentPC = pointCloud;
-			vector<pcl::PointXYZ> firstCommon = Helper::pointCloudIntersection(currentPC, firstPC), secondCommon = Helper::pointCloudIntersection(firstPC, secondPC);
-			float Q1 = learner.getQ(getRLInput(first,currentPC,firstPC)), Q2 = learner.getQ(getRLInput(secondIP,firstPC,secondPC));
+			pcl::PointCloud<pcl::PointXYZ> firstPC = Helper::getPointCloud(first), secondPC = Helper::getPointCloud(second), currentPC = pointCloud;
+			//vector<pcl::PointXYZ> firstCommon = Helper::pointCloudIntersection(currentPC, firstPC), secondCommon = Helper::pointCloudIntersection(firstPC, secondPC);
+			float Q1 = learner.getQ(Helper::getRLInput(first,currentPC));
+			float Q2 = learner.getQ(Helper::getRLInput(secondIP,firstPC));
 			cout<<"Q1: "<<Q1<<" Q2: "<<Q2<<endl;
 			if(Q1>Q_THRESH and Q2>Q_THRESH)
 				global_planner_pub.publish(std_msgs::Empty());
@@ -456,21 +476,19 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 		else
 			planner_reset_pub.publish(std_msgs::Empty());//stop planner*/
 	}
-	cout << "planner status callback end" << endl;
+	
 	pthread_mutex_unlock(&plannerStatus_mutex);
 
 }
 
 //---------------------- Sending commands to the robot -----------------------------------
-
 void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 {
-	cout << "send command callback start" << endl;
 	if(initialized)
 	{
 		std_msgs::Float32MultiArray planner_input;
 		vector<vector<float> > inputs = Helper::getTrajectories();
-		cout << "Inside send command callback - Initialized" << endl;
+		
 		try 
 		{
 			pthread_mutex_lock(&pointCloud_mutex);
@@ -493,28 +511,25 @@ void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 			//incremental training epsilon greedy
 			if(!MODE.compare("TRAIN"))
 			{
-				cout << "Inside send command callback - TRAIN" << endl;
-				if((rand() % 100) < rlRatio)
+			/*	if((rand() % 100) < rlRatio)
 					tie(lastCommand, lastRLInput, prevQ) = learner.getBestQStateAction(lastCommand, prevPointCloud);
 				else
-					tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction(prevPointCloud);
+					tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction(prevPointCloud);*/
+				tie(lastCommand, lastRLInput, prevQ) = learner.getEpsilonGreedyStateAction(rlRatio,lastCommand);//, prevPointCloud);
 			}
-			else if(!MODE.compare("TEST")){
-				cout << "Inside send command callback - TESTING" << endl;
-				tie(lastCommand, lastRLInput, prevQ) = learner.getBestQStateAction(lastCommand, prevPointCloud);
-				cout << "Inside send command callback - TESTING Done Succesfully" << endl;
-			}
-			else{
-				tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction(prevPointCloud);
-			}
+			else if(!MODE.compare("TEST"))
+				tie(lastCommand, lastRLInput, prevQ) = learner.getBestQStateAction(lastCommand);//, prevPointCloud);
+
+			else
+				tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction();//prevPointCloud);
 			num_steps++;
-	/*
-			//Thresholded random aligning with global path
+	
+	/*		//Thresholded random aligning with global path
 			vector<vector<float> > possibleTrajs, possibleInp;
 			float q;
 			for(vector<vector<float> >::iterator it = inputs.begin(); it!= inputs.end() ; it++)
 			{
-				vector<float> inp = getRLInput(*it, prevPointCloud);
+				vector<float> inp = Helper::getRLInput(*it, prevPointCloud);
 				q = learner.getQ(inp);
 				if(q>Q_THRESH)
 				{
@@ -530,8 +545,12 @@ void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 			{
 				int index = rand()%possibleTrajs.size();
 				vector<float> myPose = {robotWorldPose.position.x,robotWorldPose.position.y,tan(Helper::getPoseOrientation(robotWorldPose.orientation)[2])}, nextPose;
-				vector<vector<float> > points = {{4.0,7.0,0.0},
-												 {6.0,2.0,-tan(PI/4)}};
+				//map 1
+				vector<vector<float> > points = {{4.0,7.0,0.0}, {6.0,2.0,-tan(PI/4)}};
+				
+				//map 2
+				//vector<vector<float> > points = {{4.0,4.0,tan(PI/4)}, {7.0,6.0,0.0}};
+				
 				if(myPose[0]>=4)
 					nextPose = points[1];
 				else
@@ -578,8 +597,5 @@ void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 			cout<<"Exception "<<e<<endl;
 			state = 0;
 		}
-
-	}
-	cout << "send command callback end" << endl;
-	
+	}	
 }

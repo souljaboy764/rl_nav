@@ -7,11 +7,12 @@ using namespace std;
 pthread_mutex_t Helper::pose_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t Helper::info_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t Helper::gazeboModelState_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t Helper::pointCloud_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 geometry_msgs::PoseWithCovarianceStamped Helper::pose;
 ptam_com::ptam_info Helper::ptamInfo;
 geometry_msgs::Pose Helper::robotWorldPose;
-
+pcl::PointCloud<pcl::PointXYZ> Helper::currentPointCloud;
 ros::ServiceClient Helper::posePointCloudClient;
 
 Helper::Helper()
@@ -19,20 +20,21 @@ Helper::Helper()
 	posePointCloudClient = nh.serviceClient<ptam_com::PosePointCloud>("/vslam/posepointcloud");
 	pose_sub = nh.subscribe("/vslam/pose_world",100, &Helper::poseCb, this);
 	info_sub = nh.subscribe("/vslam/info",100, &Helper::ptamInfoCb, this);
+	pointCloud_sub = nh.subscribe("/vslam/frame_points", 100, &Helper::pointCloudCb, this);
 	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &Helper::gazeboModelStatesCb, this);
 }
 
 void Helper::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr)
 {
 	pthread_mutex_lock(&pose_mutex);
-	Helper::pose = *posePtr;
+	pose = *posePtr;
 	pthread_mutex_unlock(&pose_mutex);
 }
 
 void Helper::ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr)
 {
 	pthread_mutex_lock(&info_mutex);
-	Helper::ptamInfo = *ptamInfoPtr;
+	ptamInfo = *ptamInfoPtr;
 	pthread_mutex_unlock(&info_mutex);
 }
 
@@ -41,6 +43,14 @@ void Helper::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPt
 	pthread_mutex_lock(&gazeboModelState_mutex);	
 	robotWorldPose = modelStatesPtr->pose.back();
 	pthread_mutex_unlock(&gazeboModelState_mutex);
+}
+
+void Helper::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPtr)	
+{
+	pthread_mutex_lock(&pointCloud_mutex);
+	currentPointCloud = *pointCloudPtr;
+	cout<<"HELPER: "<<currentPointCloud.points.size()<<endl;
+	pthread_mutex_unlock(&pointCloud_mutex);
 }
 
 pcl::PointCloud<pcl::PointXYZ> Helper::getPointCloud(vector<float> input)
@@ -59,13 +69,16 @@ pcl::PointCloud<pcl::PointXYZ> Helper::getPointCloud(vector<float> input)
 	return pointCloud;
 }
 
-vector<float> Helper::getRLInput(vector<float> input, pcl::PointCloud<pcl::PointXYZ> currentPointCloud)
+vector<float> Helper::getRLInput(vector<float> input)
 {
 	//Calculate intersection of current and next pointcloud
 	vector<float> rl_input;
 	pcl::PointCloud<pcl::PointXYZ> nextPointCloud = getPointCloud(input);
 	
+	pthread_mutex_lock(&pointCloud_mutex);
 	vector<pcl::PointXYZ> commonPoints = pointCloudIntersection(currentPointCloud,nextPointCloud);
+	pthread_mutex_unlock(&pointCloud_mutex);
+
 	float dir = input[12], del_heading = atan(input[5]);
 	//RL params
 	rl_input.push_back((dir==1)?2.0:1.0);
@@ -79,8 +92,6 @@ vector<float> Helper::getRLInput(vector<float> input, pcl::PointCloud<pcl::Point
 	pthread_mutex_lock(&info_mutex);
 	rl_input.push_back((Helper::ptamInfo.trackingQuality)?2:0);
 	pthread_mutex_unlock(&info_mutex);
-//	rl_input.push_back(100.0*commonPoints.size()/float(currentPointCloud.points.size()));
-	//rl_input.push_back(distance);
 
 	return rl_input;
 
@@ -122,20 +133,20 @@ geometry_msgs::PoseStamped Helper::getPoseFromInput(vector<float> input, geometr
 }
 
 
-vector<pcl::PointXYZ> Helper::pointCloudIntersection(pcl::PointCloud<pcl::PointXYZ> currentPointCloud, pcl::PointCloud<pcl::PointXYZ> nextPointCloud)
+vector<pcl::PointXYZ> Helper::pointCloudIntersection(pcl::PointCloud<pcl::PointXYZ> pointCloudA, pcl::PointCloud<pcl::PointXYZ> pointCloudB)
 {
-	vector<pcl::PointXYZ> commonPoints(nextPointCloud.width * nextPointCloud.height + currentPointCloud.width * currentPointCloud.height);
+	vector<pcl::PointXYZ> commonPoints(pointCloudB.width * pointCloudB.height + pointCloudA.width * pointCloudA.height);
 	vector<pcl::PointXYZ>::iterator it;
-	it=set_intersection(nextPointCloud.points.begin(), nextPointCloud.points.end(), 
-						currentPointCloud.points.begin(), currentPointCloud.points.end(), commonPoints.begin(),pointEqComparer());
+	it=set_intersection(pointCloudB.points.begin(), pointCloudB.points.end(), 
+						pointCloudA.points.begin(), pointCloudA.points.end(), commonPoints.begin(),pointEqComparer());
 	commonPoints.resize(it-commonPoints.begin());
 	return commonPoints;
 }
 
 bool Helper::inLimits(float x, float y)
 {
-	//return x>0.3 and y > 0.3 and x < 7.7 and y < 7.7 and (x<3.7 or x>4.3 or (x>=3.7 and x<=4.3 and y>6.3)); // map 1
-	return x>=-6 and x<=0 and y>=-1 and y<=3; //training map
+	return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and (x<3.6 or x>4.4 or (x>=3.6 and x<=4.4 and y>6.4)); // map 1
+	//return x>=-6 and x<=0 and y>=-1 and y<=3; //training map
 	//return true;
 }
 
@@ -172,9 +183,9 @@ geometry_msgs::Pose Helper::getRobotWorldPose()
 	return robotWorldPose;
 }
 
-void Helper::saveFeatureExpectation(vector<vector<vector<float> > > episodeList)
+void Helper::saveFeatureExpectation(vector<vector<vector<float> > > episodeList, string fileName)
 {
-	ofstream feFile("feFile.txt");
+	ofstream feFile(fileName);
 	for(vector<vector<vector<float> > >::iterator episode = episodeList.begin(); episode!=episodeList.end(); ++episode)
 		for(vector<vector<float> >::iterator rlStep = episode->begin(); rlStep!=episode->end(); ++rlStep)
 		{
@@ -182,4 +193,27 @@ void Helper::saveFeatureExpectation(vector<vector<vector<float> > > episodeList)
 				feFile<< *it << '\t';
 			feFile << rlStep->back()<<endl;
 		}
+}
+
+vector<vector<vector<float> > > Helper::readFeatureExpectation(string fileName)
+{
+	vector<vector<vector<float> > > episodeList;
+	vector<vector<float> > episode;
+	fstream infile(fileName);
+	if(infile.good())
+	{
+		float dir, angle, fov, status;
+		while(!infile.eof())
+		{
+			infile >> dir >> angle >> fov >> status;
+			episode.push_back({dir, angle, fov, status});
+			if(!status)
+			{
+				episodeList.push_back(episode);
+				episode.clear();
+			}
+		}
+	}
+
+	return episodeList;
 }
