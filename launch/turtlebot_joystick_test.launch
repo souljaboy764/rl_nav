@@ -11,6 +11,9 @@
 		<param name="mode"  type="string" value="TEST" />
 		<param name="num_episodes" type="int" value="20" />
 		<param name="max_steps" type="int" value="1000" />
+		<param name="init_x" type="double" value="-1" />
+		<param name="init_y" type="double" value="1" />
+		<param name="init_Y" type="double" value="0.4" />
 	</node>
 
 	

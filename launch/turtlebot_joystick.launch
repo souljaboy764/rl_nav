@@ -7,7 +7,23 @@
 
 	<node name="PlannerNode" pkg="turtlebot_nav" type="PlannerNode.py" output="screen" required="true"/>
 
-	<node name="turtlebot_nav" pkg="turtlebot_nav" type="turtlebot_nav" output="screen" required="true"/>
+	<node name="turtlebot_nav" pkg="turtlebot_nav" type="turtlebot_nav" output="screen" required="true">
+		<!-- map 1 -->
+		<!-- <param name="init_x" type="double" value="2.6" />
+		<param name="init_y" type="double" value="2.6" />
+		<param name="init_Y" type="double" value="0.785" /> -->
+
+		<!-- map 2 -->
+		<!-- <param name="init_x" type="double" value="2" />
+		<param name="init_y" type="double" value="2" />
+		<param name="init_Y" type="double" value="0" /> -->
+
+		<!-- training map -->
+		<param name="init_x" type="double" value="-1" />
+		<param name="init_y" type="double" value="1" />
+		<param name="init_Y" type="double" value="0.4" />
+
+	</node>
 
 	
 	

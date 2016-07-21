@@ -21,9 +21,6 @@
 #include <geometry_msgs/Quaternion.h>
 #include <ptam_com/ptam_info.h>
 #include <ptam_com/PosePointCloud.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <visualization_msgs/Marker.h>
-#include <nav_msgs/Odometry.h>
 #include <pcl_ros/point_cloud.h>
 #include <gazebo_msgs/ModelStates.h>
 
@@ -75,14 +72,12 @@ class Helper
 
 public:
 	Helper();
-	static pcl::PointCloud<pcl::PointXYZ> getPointCloud(vector<float> input);
-	static vector<float> getRLInput(vector<float> input);
+	static pcl::PointCloud<pcl::PointXYZ> getPointCloudAtPosition(vector<float> input);
 	static vector<double> getPoseOrientation(geometry_msgs::Quaternion quat);
 	static geometry_msgs::PoseStamped getPoseFromInput(vector<float> input, geometry_msgs::PoseWithCovarianceStamped pose);
 	static vector<pcl::PointXYZ> pointCloudIntersection(pcl::PointCloud<pcl::PointXYZ> pointCloudA, pcl::PointCloud<pcl::PointXYZ> pointCloudB);
 	static bool inLimits(float x, float y);
 	static vector<vector<float> > getTrajectories();
-	static geometry_msgs::Pose getRobotWorldPose();
-	static void saveFeatureExpectation(vector<vector<vector<float> > > episodeList, string fileName);
-	static vector<vector<vector<float> > > readFeatureExpectation(string fileName);
+	static void saveFeatureExpectation(vector<vector<vector<unsigned int> > > episodeList, string fileName);
+	static vector<vector<vector<unsigned int> > > readFeatureExpectation(string fileName);	
 };

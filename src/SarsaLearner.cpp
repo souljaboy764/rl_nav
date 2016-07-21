@@ -1,9 +1,9 @@
 #include <iostream>
 #include <fstream>
-#include <cmath>
 #include <algorithm>
 #include <iterator>
-#include <exception>
+
+#include <cmath>
 
 #include "SarsaLearner.h"
 
@@ -86,21 +86,15 @@ SarsaLearner::~SarsaLearner()
 }
 
 // Function to return Q value
-float SarsaLearner::getQ(vector<float> stateAction)
+float SarsaLearner::getQ(vector<unsigned int> stateAction)
 {
 	if(!qValid)
 		return 0.0;
 
-	// Discretize state
-	vector<unsigned int> discreteStateAction = discretizeState(stateAction);
-	
-	if(!discreteStateAction.size())
-		return 0.0;
-	
-	unsigned int stateDir = discreteStateAction[0];
-	unsigned int stateHead = discreteStateAction[1];
-	unsigned int stateFOV = discreteStateAction[2];
-//	unsigned int statePFOV = discreteStateAction[3];
+	unsigned int stateDir = stateAction[0];
+	unsigned int stateHead = stateAction[1];
+	unsigned int stateFOV = stateAction[2];
+
 	// Get q value
 	return qMatrix[stateDir][stateHead][stateFOV];
 }
@@ -119,7 +113,7 @@ float SarsaLearner::getQ(vector<float> stateAction)
 	return rew_1 + rew_2;
 }*/
 
-float SarsaLearner::getReward(vector<float> stateAction)
+float SarsaLearner::getReward(vector<unsigned int> stateAction)
 {
 	vector<float> phi;
 	if(stateAction[0]-1)
@@ -132,26 +126,21 @@ float SarsaLearner::getReward(vector<float> stateAction)
 		phi.push_back(1);
 		phi.push_back(0);
 	}	
-	phi.push_back(stateAction[1]/30.0);
-	phi.push_back(stateAction[2]/30.0);
+	phi.push_back(stateAction[1]/STATE_HEAD_MAX);
+	phi.push_back(stateAction[2]/STATE_FOV_MAX);
 	phi.push_back(1 - stateAction[3]/2.0);
 	return inner_product(phi.begin(), phi.end(), w.begin(), 0.0);
 }
 
 // Function to update Q value
-void SarsaLearner::updateQ(vector<float> stateAction, vector<float> nextStateAction)
+void SarsaLearner::updateQ(vector<unsigned int> stateAction, vector<unsigned int> nextStateAction)
 {
 	if(!qValid)
 		return;
 
-	// Discretize state
-	vector<unsigned int> nextDiscreteStateAction=discretizeState(nextStateAction);
-	if(!nextDiscreteStateAction.size())
-		return;
-
-	unsigned int nextStateDir = nextDiscreteStateAction[0];
-	unsigned int nextStateHead = nextDiscreteStateAction[1];
-	unsigned int nextStateFOV = nextDiscreteStateAction[2];
+	unsigned int nextStateDir = nextStateAction[0];
+	unsigned int nextStateHead = nextStateAction[1];
+	unsigned int nextStateFOV = nextStateAction[2];
 	
 	// Get q value
 	float qNext = qMatrix[nextStateDir][nextStateHead][nextStateFOV];
@@ -159,18 +148,14 @@ void SarsaLearner::updateQ(vector<float> stateAction, vector<float> nextStateAct
 	updateQ(stateAction, qNext);
 }
 
-void SarsaLearner::updateQ(vector<float> stateAction, float qNext)
+void SarsaLearner::updateQ(vector<unsigned int> stateAction, float qNext)
 {
 	if(!qValid)
 		return;
 
-	vector<unsigned int> discreteStateAction = discretizeState(stateAction);
-	if(!discreteStateAction.size())
-		return;
-
-	unsigned int stateDir = discreteStateAction[0];
-	unsigned int stateHead = discreteStateAction[1];
-	unsigned int stateFOV = discreteStateAction[2];
+	unsigned int stateDir = stateAction[0];
+	unsigned int stateHead = stateAction[1];
+	unsigned int stateFOV = stateAction[2];
 
 	float Q = qMatrix[stateDir][stateHead][stateFOV];
 
@@ -178,47 +163,14 @@ void SarsaLearner::updateQ(vector<float> stateAction, float qNext)
 	qMatrix[stateDir][stateHead][stateFOV] += SARSA_ALPHA * (getReward(stateAction) + SARSA_GAMMA * qNext - Q);
 }
 
-void SarsaLearner::episodeUpdate(vector<vector<vector<float> > > episodeList)
+void SarsaLearner::episodeUpdate(vector<vector<vector<unsigned int> > > episodeList)
 {
-	for(vector<vector<vector<float> > >::iterator episode = episodeList.begin(); episode!=episodeList.end(); ++episode)
+	for(vector<vector<vector<unsigned int> > >::iterator episode = episodeList.begin(); episode!=episodeList.end(); ++episode)
 	{
 		int i=0;
-		for(vector<vector<float> >::iterator rlStep = episode->begin(); rlStep!=episode->end()-1; ++rlStep)
+		for(vector<vector<unsigned int> >::iterator rlStep = episode->begin(); rlStep!=episode->end()-1; ++rlStep)
 			updateQ(*rlStep, *next(rlStep));
 		updateQ(episode->back(), 0);	
 	}
 	cout<<endl;
-}
-// Discretize state
-vector<unsigned int> SarsaLearner::discretizeState(vector<float> stateAction)
-{
-	float dir = stateAction[0];
-	float head = stateAction[1];
-	float fov = stateAction[2];
-	//float pfov = stateAction[3];
-
-	vector <unsigned int> discreteStateAction;
-
-	// Test against limits
-	if(	dir < MIN_DIR || dir > MAX_DIR ||
-		head < MIN_HEAD || head > MAX_HEAD ||
-		fov < MIN_FOV || fov > MAX_FOV)// || 
-		//pfov < MIN_PFOV || pfov > MAX_PFOV)
-	{
-		return discreteStateAction;
-	}	
-
-	// Discretize using offset and factor
-	discreteStateAction.push_back((unsigned int) (dir + OFFSET_DIR) / DISC_DIR);
-	discreteStateAction.push_back((unsigned int) (head + OFFSET_HEAD) / DISC_HEAD);
-	discreteStateAction.push_back((unsigned int) (fov + OFFSET_FOV) / DISC_FOV);
-//	discreteStateAction.push_back((unsigned int) (pfov + OFFSET_PFOV) / DISC_PFOV);
-
-	// Correct if limits crossed
-	discreteStateAction[0] = (discreteStateAction[0] > DISC_DIR_MAX) ? DISC_DIR_MAX : discreteStateAction[0];
-	discreteStateAction[1] = (discreteStateAction[1] > DISC_HEAD_MAX) ? DISC_HEAD_MAX : discreteStateAction[1];
-	discreteStateAction[2] = (discreteStateAction[2] > DISC_FOV_MAX) ? DISC_FOV_MAX : discreteStateAction[2];
-//	discreteStateAction[3] = (discreteStateAction[3] > DISC_PFOV_MAX) ? DISC_PFOV_MAX : discreteStateAction[3];
-
-	return discreteStateAction;
 }

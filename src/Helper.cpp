@@ -52,7 +52,7 @@ void Helper::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPt
 	pthread_mutex_unlock(&pointCloud_mutex);
 }
 
-pcl::PointCloud<pcl::PointXYZ> Helper::getPointCloud(vector<float> input)
+pcl::PointCloud<pcl::PointXYZ> Helper::getPointCloudAtPosition(vector<float> input)
 {
 	pcl::PointCloud<pcl::PointXYZ> pointCloud;
 	ptam_com::PosePointCloud posePointCloud;
@@ -66,34 +66,6 @@ pcl::PointCloud<pcl::PointXYZ> Helper::getPointCloud(vector<float> input)
 	pcl::fromROSMsg(posePointCloud.response.pointCloud, pointCloud);
 	
 	return pointCloud;
-}
-
-vector<float> Helper::getRLInput(vector<float> input)
-{
-	//Calculate intersection of current and next pointcloud
-	vector<float> rl_input;
-	pcl::PointCloud<pcl::PointXYZ> nextPointCloud = getPointCloud(input);
-	
-	pthread_mutex_lock(&pointCloud_mutex);
-	vector<pcl::PointXYZ> commonPoints = pointCloudIntersection(currentPointCloud,nextPointCloud);
-	pthread_mutex_unlock(&pointCloud_mutex);
-
-	float dir = input[12], del_heading = atan(input[5]);
-	//RL params
-	rl_input.push_back((dir==1)?2.0:1.0);
-	if(fabs(del_heading)*180.0/PI > 30)
-		rl_input.push_back(30);
-	else
-		rl_input.push_back(fabs((del_heading)*180.0/PI));
-
-	rl_input.push_back(min(30,commonPoints.size()/20.0));
-
-	pthread_mutex_lock(&info_mutex);
-	rl_input.push_back((Helper::ptamInfo.trackingQuality)?2:0);
-	pthread_mutex_unlock(&info_mutex);
-
-	return rl_input;
-
 }
 
 vector<double> Helper::getPoseOrientation(geometry_msgs::Quaternion quat)
@@ -177,31 +149,26 @@ vector<vector<float> > Helper::getTrajectories()
 	return inputs;
 }
 
-geometry_msgs::Pose Helper::getRobotWorldPose()
-{
-	return robotWorldPose;
-}
-
-void Helper::saveFeatureExpectation(vector<vector<vector<float> > > episodeList, string fileName)
+void Helper::saveFeatureExpectation(vector<vector<vector<unsigned int> > > episodeList, string fileName)
 {
 	ofstream feFile(fileName);
-	for(vector<vector<vector<float> > >::iterator episode = episodeList.begin(); episode!=episodeList.end(); ++episode)
-		for(vector<vector<float> >::iterator rlStep = episode->begin(); rlStep!=episode->end(); ++rlStep)
+	for(vector<vector<vector<unsigned int> > >::iterator episode = episodeList.begin(); episode!=episodeList.end(); ++episode)
+		for(vector<vector<unsigned int> >::iterator rlStep = episode->begin(); rlStep!=episode->end(); ++rlStep)
 		{
-			for(vector<float>::iterator it=rlStep->begin(); it!=rlStep->end()-1; ++it)
+			for(vector<unsigned int>::iterator it=rlStep->begin(); it!=rlStep->end()-1; ++it)
 				feFile<< *it << '\t';
 			feFile << rlStep->back()<<endl;
 		}
 }
 
-vector<vector<vector<float> > > Helper::readFeatureExpectation(string fileName)
+vector<vector<vector<unsigned int> > > Helper::readFeatureExpectation(string fileName)
 {
-	vector<vector<vector<float> > > episodeList;
-	vector<vector<float> > episode;
+	vector<vector<vector<unsigned int> > > episodeList;
+	vector<vector<unsigned int> > episode;
 	ifstream infile(fileName);
 	if(infile.good())
 	{
-		float dir, angle, fov, status;
+		unsigned int dir, angle, fov, status;
 		while(infile)
 		{
 			infile >> dir >> angle >> fov >> status;

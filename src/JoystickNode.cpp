@@ -3,7 +3,6 @@
 #include <numeric>
 #include <functional>
 #include <thread>
-#include <chrono>
 
 #include <cmath>
 #include <ctime>
@@ -13,27 +12,15 @@
 #include "Helper.h"
 #include "JoystickNode.h"
 
-#include <std_msgs/Float32MultiArray.h>
-#include <geometry_msgs/Point.h>
-#include <gazebo_msgs/ModelState.h>
-
 #include <tf/transform_datatypes.h>
 
 #include <turtlebot_nav/ExpectedPath.h>
-/*#include <TooN/TooN.h>
-#include <TooN/se3.h>
-#include <TooN/so3.h>
-*/
 
 using namespace std;
 
 pthread_mutex_t JoystickNode::pose_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t JoystickNode::cpose_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t JoystickNode::pointCloud_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t JoystickNode::ptam_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t JoystickNode::markerArray_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t JoystickNode::odom_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t JoystickNode::vel_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t JoystickNode::ptamInfo_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t JoystickNode::plannerStatus_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t JoystickNode::gazeboModelState_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t JoystickNode::globalPlanner_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -45,7 +32,6 @@ JoystickNode::JoystickNode()
 	planner_pub = nh.advertise<std_msgs::Float32MultiArray>("/planner/input",1);
 	global_planner_pub = nh.advertise<std_msgs::Empty>("/planner/input/global",1);
 	planner_reset_pub = nh.advertise<std_msgs::Empty>("/planner/reset",1);
-	path_pub = nh.advertise<visualization_msgs::Marker>("/robot_path",1);
 	gazebo_state_reset_pub = nh.advertise<gazebo_msgs::ModelState>("/gazebo/set_model_state",1);
 	ptam_com_pub = nh.advertise<std_msgs::String>("/vslam/key_pressed",1);
 	pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/my_pose",1);
@@ -59,16 +45,15 @@ JoystickNode::JoystickNode()
 	ifstream ratioFile("ratioFile.txt");
 	ratioFile >> rlRatio;
 	ratioFile.close();
-
 	if(!rlRatio)
 		rlRatio = 10;
-
+	episodeList = Helper::readFeatureExpectation("tempfeFile.txt");
 	state = 0;
 	breakCount = 0;
 	joy.buttons = vector<int>(11,0);
 	joy.axes = vector<float>(8,0);
 	prevQ = 1;	
-	robotName = "";
+	initState.model_name = "";
 	just_init = false;
 	initialized = false;
 	num_inits = 0;
@@ -76,38 +61,29 @@ JoystickNode::JoystickNode()
 	
 	qFile.open("qIRLData.txt",ios::app);
 	
-	path.id=0;
-	path.lifetime=ros::Duration(1);
-	path.header.frame_id = "/world";
-	path.header.stamp = ros::Time::now();
-	path.ns = "robotpose_publisher";
-	path.action = visualization_msgs::Marker::ADD;
-	path.type = visualization_msgs::Marker::LINE_STRIP;
-	path.color.r=1.0;
-	path.color.g=1.0;
-	path.color.a=1.0;
-	path.scale.x=0.01;
-	path.pose.orientation.w=1.0;
-	path.points.clear();
-
 	joy_sub = nh.subscribe("/joy", 100, &JoystickNode::joyCb, this);
 	init_sub = nh.subscribe("/rl/init", 100, &JoystickNode::initCb, this);
 	sendCommand_sub = nh.subscribe("/rl/sendCommand", 100, &JoystickNode::sendCommandCb, this);
 	pose_sub = nh.subscribe("/vslam/pose_world",100, &JoystickNode::poseCb, this); 
-	cam_pose_sub = nh.subscribe("/vslam/pose",100, &JoystickNode::camPose, this);
-	odom_sub = nh.subscribe("/odom", 100, &JoystickNode::odomCb, this);
 	pointCloud_sub = nh.subscribe("/vslam/frame_points", 100, &JoystickNode::pointCloudCb, this);
 	ptamInfo_sub = nh.subscribe("/vslam/info", 100, &JoystickNode::ptamInfoCb, this);
 	plannerStatus_sub = nh.subscribe("/planner/status", 100, &JoystickNode::plannerStatusCb, this);
 	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &JoystickNode::gazeboModelStatesCb, this);
 	globalPoints_sub = nh.subscribe("/planner/global/path", 100, &JoystickNode::globalNextPoseCb, this);
 
+	initState.reference_frame = "world";
+	initState.pose.position.z = 0;
+
+	float initYaw;
 	ros::NodeHandle p_nh("~");
 	p_nh.getParam("mode", MODE);
 	p_nh.getParam("num_episodes", NUM_EPISODES);
 	p_nh.getParam("max_steps", MAX_STEPS);
+	p_nh.getParam("init_x", initState.pose.position.x);
+	p_nh.getParam("init_y", initState.pose.position.y);
+	p_nh.getParam("init_Y", initYaw);
 	
-	episodeList = Helper::readFeatureExpectation("tempfeFile.txt");
+	initState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, initYaw);
 
 	if(MODE.length()>0)
 	{
@@ -124,6 +100,9 @@ JoystickNode::~JoystickNode()
 	p_nh.deleteParam("mode");
 	p_nh.deleteParam("num_episodes");
 	p_nh.deleteParam("max_steps");
+	p_nh.deleteParam("init_x");
+	p_nh.deleteParam("init_y");
+	p_nh.deleteParam("init_Y");
 
 	remove("tempfeFile.txt");
 	Helper::saveFeatureExpectation(episodeList, "tempfeFile.txt");
@@ -133,12 +112,13 @@ JoystickNode::~JoystickNode()
 	ratioFile.close();
 }
 
-//-----------------------PTAM Initializer callback-----------------------------------------
+/**
+ *	PTAM Initializer callback
+ */
 void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 {
 	
 	std_msgs::String resetString, spaceString;
-	gazebo_msgs::ModelState newState;
 	geometry_msgs::Twist twist;
 	initY = 0;
 	planner_reset_pub.publish(std_msgs::Empty());//stop planner
@@ -150,29 +130,7 @@ void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 	ptam_com_pub.publish(resetString);
 	ptam_com_pub.publish(resetString);
 	
-	newState.model_name = robotName;
-	newState.reference_frame = "world";
-
-/*	//map 1
-	newState.pose.position.x = 2.6;
-	newState.pose.position.y = 2.6;
-	newState.pose.position.z = 0;
-	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, PI/4.0);*/
-
-/*	//map 2
-	newState.pose.position.x = 2;
-	newState.pose.position.y = 2;
-	newState.pose.position.z = 0;
-	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, 0.0);*/
-
-	//training map
-	newState.pose.position.x = -1;
-	newState.pose.position.y = 1;
-	newState.pose.position.z = 0;
-	
-	newState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, 0.4);
-
-	gazebo_state_reset_pub.publish(newState);
+	gazebo_state_reset_pub.publish(initState);
 	ptam_com_pub.publish(spaceString);
 
 	twist.linear.x=-0.4;
@@ -192,7 +150,9 @@ void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 		
 }
 
-//-----------------------Receive PTAM pose of camera in world-----------------------------------------
+/**
+ *	Receive PTAM pose of camera in world
+ */
 void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr)
 {
 	pthread_mutex_lock(&pose_mutex);
@@ -231,8 +191,6 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 	else if(num_broken>0)
 		num_broken--;
 	
-	path.points.push_back(pose.pose.pose.position);
-	path_pub.publish(path);
 	
 	geometry_msgs::PoseStamped ps;
 	ps.header = pose.header;
@@ -242,14 +200,15 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 	pthread_mutex_unlock(&pose_mutex);
 }
 
-//-----------------------Receive next expected robot pose w.r.t. current pose along global path-----------------------------------------
+/**
+ *	Receive next expected robot pose w.r.t. current pose along global path
+ */
 void JoystickNode::globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPtr)
 {
 	pthread_mutex_lock(&globalPlanner_mutex);
 	vector<float> input = arrayPtr->data;
 	
-	//float Q = learner.getQ(learner.getRLInput(input, pointCloud));
-	float Q = get<2>(learner.getAction(input));//,pointCloud));
+	float Q = get<2>(learner.getAction(input));
 	geometry_msgs::PoseStamped ps;
 	ps = Helper::getPoseFromInput(input, pose);
 	expected_pub.publish(ps);
@@ -272,15 +231,9 @@ void JoystickNode::globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPt
 	pthread_mutex_unlock(&globalPlanner_mutex);
 }
 
-//-----------------------Receive PTAM pose of world in camera-----------------------------------------
-void JoystickNode::camPose(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr)
-{
-	pthread_mutex_lock(&cpose_mutex);
-	cpose = *posePtr;
-	pthread_mutex_unlock(&cpose_mutex);
-}
-
-//-----------------------Receive joystick input-----------------------------------------
+/**
+ *	Receive joystick input
+ */
 void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
 {
 	geometry_msgs::Twist command;
@@ -363,15 +316,9 @@ void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
 	joy = *joyPtr;
 }
 
-//-----------------------Receive robot odometry-----------------------------------------
-void JoystickNode::odomCb(const nav_msgs::OdometryPtr odomPtr)
-{	
-	pthread_mutex_lock(&odom_mutex);
-	odomMsgs.push_back(*odomPtr);
-	pthread_mutex_unlock(&odom_mutex);
-}
-
-//-----------------------Receive PTAM point cloud-----------------------------------------
+/**
+ *	Receive PTAM point cloud
+ */
 void JoystickNode::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPtr)	
 {
 	pthread_mutex_lock(&pointCloud_mutex);
@@ -379,26 +326,32 @@ void JoystickNode::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointC
 	pthread_mutex_unlock(&pointCloud_mutex);
 }
 
-//-----------------------Receive PTAM Info-----------------------------------------
+/**
+ *	Receive PTAM Info
+ */
 void JoystickNode::ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr)	
 {
-	pthread_mutex_lock(&ptam_mutex);
+	pthread_mutex_lock(&ptamInfo_mutex);
 	ptamInfo = *ptamInfoPtr;
-	pthread_mutex_unlock(&ptam_mutex);
+	pthread_mutex_unlock(&ptamInfo_mutex);
 }
 
-//-----------------------Receive Gazebo Models data-----------------------------------------
+/**
+ *	Receive Gazebo Models data
+ */
 void JoystickNode::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr)
 {
 	pthread_mutex_lock(&gazeboModelState_mutex);	
 	robotWorldPose = modelStatesPtr->pose.back();
-	if(just_init and not robotName.length() and modelStatesPtr->name.back().length())
+	if(just_init and not initState.model_name.length() and modelStatesPtr->name.back().length())
 		init_pub.publish(std_msgs::Empty());
-	robotName = modelStatesPtr->name.back();
+	initState.model_name = modelStatesPtr->name.back();
 	pthread_mutex_unlock(&gazeboModelState_mutex);
 }
 
-//-----------------------Receive Planner status after executing local action-----------------------------------------
+/**
+ *	Receive Planner status after executing local action
+ */
 void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 {
 	pthread_mutex_lock(&plannerStatus_mutex);
@@ -408,15 +361,15 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 		breakCount++;
 		ptam_com::ptam_info info;
 		
-		pthread_mutex_lock(&ptam_mutex);
+		pthread_mutex_lock(&ptamInfo_mutex);
 		info = ptamInfo;
-		pthread_mutex_unlock(&ptam_mutex);
+		pthread_mutex_unlock(&ptamInfo_mutex);
 		lastRLInput[3] = (num_broken <= 3 and info.trackingQuality)?2:0;
 		for(auto i: lastRLInput)
 			qFile<<i<<'\t';
-		qFile << pointCloud.points.size() << '\t' << prevQ << "\t" << ((num_broken <= 3 and info.trackingQuality)?2:0) << '\n';
+		qFile << '\n';
 		episode.push_back(lastRLInput);
-		//learner.updateQ(lastRLInput, next.second);
+		//learner
 
 		if(num_broken>3 or !info.trackingQuality) 
 		{	
@@ -489,7 +442,9 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 
 }
 
-//---------------------- Sending commands to the robot -----------------------------------
+/**
+ *	Sending commands to the robot 
+ */
 void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 {
 	if(initialized)
@@ -499,105 +454,36 @@ void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 		
 		try 
 		{
-			pthread_mutex_lock(&pointCloud_mutex);
-			prevPointCloud = pointCloud;
-			pthread_mutex_unlock(&pointCloud_mutex);
-
-			//Best Q without repeated forward backward actions
-			//tie(lastCommand, lastRLInput, prevQ) = learner.getBestQStateAction(lastCommand, prevPointCloud);
-			
-				
-			/*
-			//epsilon greedy
-			if((rand() % 100) < rlRatio)
-				tie(lastCommand, lastRLInput, prevQ) = learner.getBestQStateAction(lastCommand, prevPointCloud);
-			else
-				tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction(prevPointCloud);
-			*/
-
-			
 			//incremental training epsilon greedy
 			if(!MODE.compare("TRAIN"))
-			{
-			/*	if((rand() % 100) < rlRatio)
-					tie(lastCommand, lastRLInput, prevQ) = learner.getBestQStateAction(lastCommand, prevPointCloud);
-				else
-					tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction(prevPointCloud);*/
-				tie(lastCommand, lastRLInput, prevQ) = learner.getEpsilonGreedyStateAction(rlRatio,lastCommand);//, prevPointCloud);
-			}
+				tie(lastCommand, lastRLInput, prevQ) = learner.getEpsilonGreedyStateAction(rlRatio,lastCommand);
 			else if(!MODE.compare("TEST"))
-				tie(lastCommand, lastRLInput, prevQ) = learner.getBestQStateAction(lastCommand);//, prevPointCloud);
-
+				tie(lastCommand, lastRLInput, prevQ) = learner.getBestQStateAction(lastCommand);
 			else
-				tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction();//prevPointCloud);
+				tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction();
 			num_steps++;
 	
-	/*		//Thresholded random aligning with global path
-			vector<vector<float> > possibleTrajs, possibleInp;
-			float q;
-			for(vector<vector<float> >::iterator it = inputs.begin(); it!= inputs.end() ; it++)
-			{
-				vector<float> inp = Helper::getRLInput(*it, prevPointCloud);
-				q = learner.getQ(inp);
-				if(q>Q_THRESH)
-				{
-					possibleTrajs.push_back(*it);
-					possibleInp.push_back(inp);
-				}
-			}
-			if(possibleTrajs.size()<1)
-			{
-				tie(lastCommand, lastRLInput, prevQ) = learner.getBestQStateAction(lastCommand, prevPointCloud);
-			}
+	/*
+			vector<float> myPose = {robotWorldPose.position.x,robotWorldPose.position.y};
+			float nextAngle;
+			//map 1
+			vector<vector<float> > points = {{4.0,7.0,0.0}, {6.0,2.0,-tan(PI/4)}};
+				
+			//map 2
+			//vector<vector<float> > points = {{4.0,4.0,tan(PI/4)}, {7.0,6.0,0.0}};
+				
+			if(myPose[0]>=4)
+				nextAngle = points[1][2];
 			else
-			{
-				int index = rand()%possibleTrajs.size();
-				vector<float> myPose = {robotWorldPose.position.x,robotWorldPose.position.y,tan(Helper::getPoseOrientation(robotWorldPose.orientation)[2])}, nextPose;
-				//map 1
-				vector<vector<float> > points = {{4.0,7.0,0.0}, {6.0,2.0,-tan(PI/4)}};
+				nextAngle = points[0][2];
 				
-				//map 2
-				//vector<vector<float> > points = {{4.0,4.0,tan(PI/4)}, {7.0,6.0,0.0}};
-				
-				if(myPose[0]>=4)
-					nextPose = points[1];
-				else
-					nextPose = points[0];
-				float min_dist = numeric_limits<float>::infinity(),ang_dist;
-				for(vector<vector<float> >::iterator it = possibleTrajs.begin(); it!= possibleTrajs.end() ; it++)
-				{	
-					ang_dist = fabs(atan(nextPose[2]) - (atan(myPose[2]) + (*it)[12]*atan((*it)[5])));
-					if(ang_dist<=min_dist)
-					{
-						min_dist = ang_dist;
-						index = it - possibleTrajs.begin();
-					}
-				}
-				lastCommand = possibleTrajs[index];
-				lastRLInput = possibleInp[index];
-				prevQ = learner.getQ(possibleInp[index]);
-			}
+			tie(lastCommand, lastRLInput, prevQ) = learner.getThresholdedClosestAngleStateAction(Q_THRESH, nextAngle, lastCommand);
+
 	*/
-
-/*			//Thresholded random
-			int i = 20;
-			do 
-			{
-				tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction(prevPointCloud);
-				i--;
-			}while(prevQ<Q_THRESH and i>=0);
-*/
-
-/*
-			//Purely random
-				tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction(prevPointCloud);
-*/			
 			next_pose_pub.publish(Helper::getPoseFromInput(lastCommand, pose));
 
 			planner_input.data = lastCommand;
-			path.points.clear();
-			odomMsgs.clear();
-
+			
 			planner_pub.publish(planner_input);//send input to planner
 		}
 		catch (int e)
