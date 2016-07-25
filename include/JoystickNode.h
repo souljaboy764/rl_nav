@@ -41,7 +41,8 @@ private:
 					gazeboModelStates_sub,
 					globalPoints_sub,
 					init_sub,
-					sendCommand_sub;
+					sendCommand_sub,
+					ptamStart_sub;
 
 	// Publishers
 	ros::Publisher  vel_pub,
@@ -76,9 +77,9 @@ private:
 
 	
 	string MODE;
-	int NUM_EPISODES, MAX_STEPS;
+	int MAX_EPISODES, MAX_STEPS;
 
-	int state, breakCount, num_broken, num_inits, num_steps;
+	int state, breakCount, num_broken, num_steps, num_episodes;
 	vector<float> lastCommand; //last command sent to the planner
 	vector<unsigned int> lastRLInput; //last RL Input
 	vector<vector<unsigned int> > episode;
@@ -101,6 +102,7 @@ private:
 	void globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPtr);
 	void initCb(const std_msgs::EmptyPtr emptyPtr);
 	void sendCommandCb(const std_msgs::EmptyPtr emptyPtr);
+	void ptamStartedCb(const std_msgs::EmptyPtr emptyPtr);
 
 public:
 	JoystickNode();

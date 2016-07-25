@@ -3,7 +3,6 @@
 #include <utility>
 #include <tuple>
 
-#include <ptam_com/ptam_info.h>
 #include <gazebo_msgs/ModelStates.h>
 #include <pcl_ros/point_cloud.h>
 
@@ -17,14 +16,12 @@ class PTAMLearner : public SarsaLearner
 {
 private:
 	ros::NodeHandle nh;
-	ros::Subscriber info_sub, gazeboModelStates_sub, pointCloud_sub;
-	static pthread_mutex_t info_mutex, gazeboModelState_mutex, pointCloud_mutex;
+	ros::Subscriber gazeboModelStates_sub, pointCloud_sub;
+	static pthread_mutex_t gazeboModelState_mutex, pointCloud_mutex;
 
-	ptam_com::ptam_info ptamInfo;
 	geometry_msgs::Pose robotWorldPose;
 	pcl::PointCloud<pcl::PointXYZ> currentPointCloud;
 	
-	void ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr);	
 	void gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr);
 	void pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPtr);	
 

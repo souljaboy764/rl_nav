@@ -56,7 +56,6 @@ JoystickNode::JoystickNode()
 	initState.model_name = "";
 	just_init = false;
 	initialized = false;
-	num_inits = 0;
 	initY = 0;
 	
 	qFile.open("qIRLData.txt",ios::app);
@@ -67,9 +66,11 @@ JoystickNode::JoystickNode()
 	pose_sub = nh.subscribe("/vslam/pose_world",100, &JoystickNode::poseCb, this); 
 	pointCloud_sub = nh.subscribe("/vslam/frame_points", 100, &JoystickNode::pointCloudCb, this);
 	ptamInfo_sub = nh.subscribe("/vslam/info", 100, &JoystickNode::ptamInfoCb, this);
+	ptamStart_sub = nh.subscribe("/vslam/started", 100, &JoystickNode::ptamStartedCb, this);
 	plannerStatus_sub = nh.subscribe("/planner/status", 100, &JoystickNode::plannerStatusCb, this);
-	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &JoystickNode::gazeboModelStatesCb, this);
 	globalPoints_sub = nh.subscribe("/planner/global/path", 100, &JoystickNode::globalNextPoseCb, this);
+	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &JoystickNode::gazeboModelStatesCb, this);
+
 
 	initState.reference_frame = "world";
 	initState.pose.position.z = 0;
@@ -77,7 +78,7 @@ JoystickNode::JoystickNode()
 	float initYaw;
 	ros::NodeHandle p_nh("~");
 	p_nh.getParam("mode", MODE);
-	p_nh.getParam("num_episodes", NUM_EPISODES);
+	p_nh.getParam("num_episodes", MAX_EPISODES);
 	p_nh.getParam("max_steps", MAX_STEPS);
 	p_nh.getParam("init_x", initState.pose.position.x);
 	p_nh.getParam("init_y", initState.pose.position.y);
@@ -110,6 +111,12 @@ JoystickNode::~JoystickNode()
 	ofstream ratioFile("ratioFile.txt");
 	ratioFile << ((rlRatio==90)?10:rlRatio) << endl;
 	ratioFile.close();
+}
+
+void JoystickNode::ptamStartedCb(const std_msgs::EmptyPtr emptyPtr)
+{
+	episode.clear();
+	init_pub.publish(std_msgs::Empty());
 }
 
 /**
@@ -165,7 +172,6 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 	if(just_init) 
 	{
 		just_init=false;
-		num_inits++;
 		orientation = Helper::getPoseOrientation(pose.pose.pose.orientation);
 		orientation[0] = abs(orientation[0]);
 		//cout<<orientation[0]<<" "<<orientation[1]<<" "<<orientation[2]<<" "<<(orientation[0]-3.14)*(orientation[0]-3.14)<<endl;
@@ -238,7 +244,7 @@ void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
 {
 	geometry_msgs::Twist command;
 	if(joyPtr->buttons[POWER] and !joy.buttons[POWER])
-		cout << breakCount << " " << rlRatio << " " << num_steps << " " << episodeList.size() <<endl;
+		cout << breakCount << " " << rlRatio << " " << num_steps << " " << num_episodes <<endl;
 /*	if((joyPtr->axes[DH] and !joy.axes[DH]) and joyPtr->axes[DH] != joy.axes[DH])
 	{
 		if(joyPtr->axes[DH]==1)
@@ -364,12 +370,21 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 		pthread_mutex_lock(&ptamInfo_mutex);
 		info = ptamInfo;
 		pthread_mutex_unlock(&ptamInfo_mutex);
-		lastRLInput[3] = (num_broken <= 3 and info.trackingQuality)?2:0;
+		lastRLInput.push_back((num_broken <= 3 and info.trackingQuality)?2:0);
 		for(auto i: lastRLInput)
 			qFile<<i<<'\t';
+		qFile<<';';
+		for(auto input : Helper::getTrajectories())
+		{
+			vector<unsigned int> rlInput;
+			float Q;
+			tie(ignore, rlInput, Q) = learner.getAction(input);
+			for(auto i : rlInput)
+				qFile<<i<<'\t';
+			qFile<<';';
+		}
 		qFile << '\n';
 		episode.push_back(lastRLInput);
-		//learner
 
 		if(num_broken>3 or !info.trackingQuality) 
 		{	
@@ -382,8 +397,9 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 			
 			episodeList.push_back(episode);
 			episode.clear();
+			num_episodes++;
 
-			if(episodeList.size()==NUM_EPISODES or num_steps >= MAX_STEPS)
+			if(num_episodes == MAX_EPISODES or num_steps >= MAX_STEPS)
 			{
 				if(!MODE.compare("TRAIN"))
 				{

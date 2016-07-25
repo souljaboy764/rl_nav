@@ -3,23 +3,14 @@
 
 using namespace std;
 
-pthread_mutex_t PTAMLearner::info_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t PTAMLearner::gazeboModelState_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t PTAMLearner::pointCloud_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 PTAMLearner::PTAMLearner()
 {
-	info_sub = nh.subscribe("/vslam/info",100, &PTAMLearner::ptamInfoCb, this);
 	pointCloud_sub = nh.subscribe("/vslam/frame_points", 100, &PTAMLearner::pointCloudCb, this);
 	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &PTAMLearner::gazeboModelStatesCb, this);
 	srand (time(NULL));
-}
-
-void PTAMLearner::ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr)
-{
-	pthread_mutex_lock(&info_mutex);
-	ptamInfo = *ptamInfoPtr;
-	pthread_mutex_unlock(&info_mutex);
 }
 
 void PTAMLearner::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr)
@@ -48,17 +39,13 @@ CommandStateActionQ PTAMLearner::getAction(vector<float> input)
 
 	float dir = input[12], del_heading = atan(input[5]);
 	//RL params
-	rl_input.push_back((dir==1)?2.0:1.0);
+	rl_input.push_back((unsigned int)(dir==1)?2:1);
 	if(fabs(del_heading)*180.0/PI > 30)
 		rl_input.push_back(20);
 	else
 		rl_input.push_back((unsigned int) 20*fabs((del_heading)*180.0/(30*PI)));
 
 	rl_input.push_back((unsigned int) min(20,commonPoints.size()/30.0));
-
-	pthread_mutex_lock(&info_mutex);
-	rl_input.push_back((ptamInfo.trackingQuality)?2:0);
-	pthread_mutex_unlock(&info_mutex);
 
 	return make_tuple(input,rl_input,getQ(rl_input));
 }
