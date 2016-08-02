@@ -152,20 +152,21 @@ vector<vector<float> > Helper::getTrajectories()
 void Helper::saveFeatureExpectation(vector<vector<vector<unsigned int> > > episodeList, string fileName)
 {
 	ofstream feFile(fileName);
-	for(vector<vector<vector<unsigned int> > >::iterator episode = episodeList.begin(); episode!=episodeList.end(); ++episode)
-		for(vector<vector<unsigned int> >::iterator rlStep = episode->begin(); rlStep!=episode->end(); ++rlStep)
+	for(auto episode : episodeList)
+		for(auto rlStep : episode)
 		{
-			for(vector<unsigned int>::iterator it=rlStep->begin(); it!=rlStep->end()-1; ++it)
-				feFile<< *it << '\t';
-			feFile << rlStep->back()<<endl;
+			for(auto i : rlStep)
+				feFile<< i << '\t';
+			feFile << endl;
 		}
 }
 
 vector<vector<vector<unsigned int> > > Helper::readFeatureExpectation(string fileName)
 {
-	vector<vector<vector<unsigned int> > > episodeList;
-	vector<vector<unsigned int> > episode;
+	vector<vector<vector<unsigned int> > > episodeList = vector<vector<vector<unsigned int> > >();
+	vector<vector<unsigned int> > episode = vector<vector<unsigned int> >();
 	ifstream infile(fileName);
+	int num_episodes = 0;
 	if(infile.good())
 	{
 		unsigned int dir, angle, fov, status;
@@ -174,11 +175,16 @@ vector<vector<vector<unsigned int> > > Helper::readFeatureExpectation(string fil
 			infile >> dir >> angle >> fov >> status;
 			episode.push_back({dir, angle, fov, status});
 
-			if(!status)
+			if(status==1)
 			{
-				if(!episodeList.size() or (episodeList.size() and episode.back() != episodeList.back().back()))
+				
+				if(!episodeList.size() or (episodeList.size() and episode != episodeList.back()))
+				{
 					episodeList.push_back(episode);
+					num_episodes++;
+				}
 				episode.clear();
+				cout << num_episodes << "\t" << episodeList.size() << "\t" << dir << "\t" << angle << "\t" << fov << "\t" << status <<endl;
 			}
 		}
 	}

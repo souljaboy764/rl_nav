@@ -18,18 +18,19 @@ class PLanner2D(object):
 	def __init__(self):
 
 		self.state = 0
+
 		self.vel_pub = rospy.Publisher('/cmd_vel_mux/input/teleop',Twist,queue_size=100)
 		self.status_pub = rospy.Publisher('/planner/status',String,queue_size=100)
 		self.inp_pub = rospy.Publisher('/planner/global/path', Float32MultiArray,queue_size=100)
-#		self.q_path_pub = rospy.Publisher('/planner/global/expected_path', Float32MultiArray,queue_size=100)
+
 		self.pathSRV = rospy.Service('/planner/global/expected_path', ExpectedPath, self.sendLookahead)
 
 		# self.points = [[2.0,4.0,tan(pi/3.0),7.0],
 		# 			   [4.0,7.0,0.0,14.0],
 		# 			   [6.0,4.0,tan(-pi/3.0),21.0],
 		# 			   [6.0, 2.0,tan(-pi/8.0),28.0]]
-		#self.points = [[4.0,7.0,0.0,14.0],[6.0, 2.0,-tan(pi/4.0),28.0]] #map 1
-		self.points = [[4.0,4.0,tan(pi/4.0),14.0],[7.0,6.0,0.0,28.0]] #map 2
+		# self.points = [[4.0,7.0,0.0,14.0],[6.0, 2.0,-tan(pi/4.0),28.0]] #map 1
+		#self.points = [[4.0,4.0,tan(pi/4.0),14.0],[7.0,6.0,0.0,28.0]] #map 2
 		self.robotState = Pose()
 
 		self.inp_sub = rospy.Subscriber('/planner/input', Float32MultiArray, self.receiveInput)

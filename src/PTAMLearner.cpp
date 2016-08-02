@@ -39,13 +39,13 @@ CommandStateActionQ PTAMLearner::getAction(vector<float> input)
 
 	float dir = input[12], del_heading = atan(input[5]);
 	//RL params
-	rl_input.push_back((unsigned int)(dir==1)?2:1);
+	rl_input.push_back((unsigned int)(dir==1)?1:0);
 	if(fabs(del_heading)*180.0/PI > 30)
-		rl_input.push_back(20);
+		rl_input.push_back(19);
 	else
-		rl_input.push_back((unsigned int) 20*fabs((del_heading)*180.0/(30*PI)));
+		rl_input.push_back((unsigned int) 19*fabs((del_heading)*180.0/(30*PI)));
 
-	rl_input.push_back((unsigned int) min(20,commonPoints.size()/30.0));
+	rl_input.push_back((unsigned int) min(19,commonPoints.size()/30.0));
 
 	return make_tuple(input,rl_input,getQ(rl_input));
 }
@@ -61,7 +61,10 @@ CommandStateActionQ PTAMLearner::getBestQStateAction(vector<float> lastCommand)
 
 	for(vector<vector<float> >::iterator inp = inputs.begin(); inp!=inputs.end(); ++inp)
 	{	
-		if(lastCommand.size() and (!(lastCommand[12]+(*inp)[12]) and !(lastCommand[5] + (*inp)[5]))) //condition to prevent opposite actions
+		if(lastCommand.size() and 
+			(	!(lastCommand[12]+(*inp)[12]) and 
+				!(lastCommand[5] + (*inp)[5]) and 
+				!(19*fabs(lastCommand[5])/30.0 - 19*fabs((*inp)[5])/30.0)))
 			continue;
 		result.push_back(getAction(*inp));
 		Q = get<2>(result.back());

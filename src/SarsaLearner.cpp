@@ -33,7 +33,7 @@ SarsaLearner::SarsaLearner()
 				for(unsigned int k = 0; k<STATE_FOV_MAX; k++)
 					{
 						qMatFile >> stateDir >> stateHead >> stateFOV >> qValue;
-						qMatrix[stateDir][stateHead][stateFOV] = (qValue>0)? 0.0 : qValue;
+						qMatrix[stateDir][stateHead][stateFOV] = qValue;
 					}
 	}
 
@@ -116,7 +116,7 @@ float SarsaLearner::getQ(vector<unsigned int> stateAction)
 float SarsaLearner::getReward(vector<unsigned int> stateAction)
 {
 	vector<float> phi;
-	if(stateAction[0]-1)
+	if(stateAction[0])
 	{
 		phi.push_back(0);
 		phi.push_back(1);

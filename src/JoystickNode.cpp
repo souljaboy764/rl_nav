@@ -28,7 +28,7 @@ pthread_mutex_t JoystickNode::globalPlanner_mutex = PTHREAD_MUTEX_INITIALIZER;
 JoystickNode::JoystickNode()
 {
 	srand (time(NULL));
-	vel_pub = nh.advertise<geometry_msgs::Twist>("/cmd_vel_mux/input/teleop",1);
+	vel_pub = nh.advertise<geometry_msgs::Twist>("/mobile_base/commands/velocity",1);
 	planner_pub = nh.advertise<std_msgs::Float32MultiArray>("/planner/input",1);
 	global_planner_pub = nh.advertise<std_msgs::Empty>("/planner/input/global",1);
 	planner_reset_pub = nh.advertise<std_msgs::Empty>("/planner/reset",1);
@@ -57,6 +57,7 @@ JoystickNode::JoystickNode()
 	just_init = false;
 	initialized = false;
 	initY = 0;
+	num_broken = 0;
 	
 	qFile.open("qIRLData.txt",ios::app);
 	
@@ -96,7 +97,7 @@ JoystickNode::JoystickNode()
 JoystickNode::~JoystickNode()
 {
 	qFile.close();
-	
+	cout<<"Quitting JoystickNode"<<endl;
 	ros::NodeHandle p_nh("~");
 	p_nh.deleteParam("mode");
 	p_nh.deleteParam("num_episodes");
@@ -115,8 +116,10 @@ JoystickNode::~JoystickNode()
 
 void JoystickNode::ptamStartedCb(const std_msgs::EmptyPtr emptyPtr)
 {
+	cout<<"ENTERING ptamStarted"<<endl;
 	episode.clear();
 	init_pub.publish(std_msgs::Empty());
+	cout<<"EXITING ptamStarted"<<endl;
 }
 
 /**
@@ -124,6 +127,7 @@ void JoystickNode::ptamStartedCb(const std_msgs::EmptyPtr emptyPtr)
  */
 void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 {
+	cout<<"ENTERING init"<<endl;
 	
 	std_msgs::String resetString, spaceString;
 	geometry_msgs::Twist twist;
@@ -154,7 +158,7 @@ void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 	initialized = false;
 	ros::Rate(1).sleep();
 	ptam_com_pub.publish(spaceString);
-		
+	cout<<"EXITING init"<<endl;
 }
 
 /**
@@ -162,20 +166,21 @@ void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
  */
 void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr)
 {
+	cout<<"ENTERING pose"<<endl;
 	pthread_mutex_lock(&pose_mutex);
 	pose = *posePtr;
 	pose.header.frame_id = "world";
 	
-
 	vector<double> orientation;
-	ros::Rate r(10);
+	double angle;
 	if(just_init) 
 	{
 		just_init=false;
 		orientation = Helper::getPoseOrientation(pose.pose.pose.orientation);
-		orientation[0] = abs(orientation[0]);
+		angle = abs(orientation[0]);
 		//cout<<orientation[0]<<" "<<orientation[1]<<" "<<orientation[2]<<" "<<(orientation[0]-3.14)*(orientation[0]-3.14)<<endl;
-		if((orientation[0]-3.14)*(orientation[0]-3.14) > 0.003)
+		//if((orientation[0]-3.14)*(orientation[0]-3.14) > 0.003)
+		if((angle-3.14)*(angle-3.14) > 0.003)
 			init_pub.publish(std_msgs::Empty());
 		else
 		{
@@ -186,7 +191,7 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 	}
 	else
 		initialized = true;
-	
+
 	if(!initY)
 		initY = pose.pose.pose.position.y;
 	//float trace = pose.pose.covariance[0] + pose.pose.covariance[7] + pose.pose.covariance[14] + pose.pose.covariance[21] + pose.pose.covariance[28] + pose.pose.covariance[35];
@@ -197,13 +202,13 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 	else if(num_broken>0)
 		num_broken--;
 	
-	
 	geometry_msgs::PoseStamped ps;
 	ps.header = pose.header;
 	ps.pose = pose.pose.pose;
 	pose_pub.publish(ps);
 	
 	pthread_mutex_unlock(&pose_mutex);
+	cout<<"EXITING pose"<<endl;
 }
 
 /**
@@ -211,6 +216,7 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
  */
 void JoystickNode::globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPtr)
 {
+	cout<<"ENTERING globalNextPose"<<endl;
 	pthread_mutex_lock(&globalPlanner_mutex);
 	vector<float> input = arrayPtr->data;
 	
@@ -227,14 +233,15 @@ void JoystickNode::globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPt
 		planner_reset_pub.publish(std_msgs::Empty());//stop planner
 		//state  = 0;
 		state = 1;
-		if((robotWorldPose.position.x - 7)*(robotWorldPose.position.x - 7) + (robotWorldPose.position.y - 6)*(robotWorldPose.position.y - 6) > 0.25)
+		if((robotWorldPose.position.x - 6)*(robotWorldPose.position.x - 6) + (robotWorldPose.position.y - 2)*(robotWorldPose.position.y - 2) > 0.25)
 			sendCommand_pub.publish(std_msgs::Empty());
 		else //goal reached
 			planner_reset_pub.publish(std_msgs::Empty()); 
-	}*/
-
+	}
+*/
 	
 	pthread_mutex_unlock(&globalPlanner_mutex);
+	cout<<"EXITING globalNextPose"<<endl;
 }
 
 /**
@@ -242,6 +249,7 @@ void JoystickNode::globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPt
  */
 void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
 {
+	cout<<"ENTERING joy"<<endl;
 	geometry_msgs::Twist command;
 	if(joyPtr->buttons[POWER] and !joy.buttons[POWER])
 		cout << breakCount << " " << rlRatio << " " << num_steps << " " << num_episodes <<endl;
@@ -287,10 +295,10 @@ void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
 		spaceString.data = "Space";
 		ptam_com_pub.publish(spaceString);
 	}
-	else if(joyPtr->buttons[START] and !joy.buttons[START]){
+	else if(joyPtr->buttons[START] and !joy.buttons[START])
 		init_pub.publish(std_msgs::Empty());
-		
-	}
+	else if(joyPtr->buttons[BACK] and !joy.buttons[BACK])
+		ros::shutdown();
 	else if(joyPtr->buttons[A] and !state)
 	{
 		//send input to planner
@@ -320,6 +328,7 @@ void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
 		vel_pub.publish(command);
 	}
 	joy = *joyPtr;
+	cout<<"EXITING joy"<<endl;
 }
 
 /**
@@ -327,9 +336,11 @@ void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
  */
 void JoystickNode::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPtr)	
 {
+	cout<<"ENTERING pointCloud"<<endl;
 	pthread_mutex_lock(&pointCloud_mutex);
 	pointCloud = *pointCloudPtr;
 	pthread_mutex_unlock(&pointCloud_mutex);
+	cout<<"EXITING pointCloud"<<endl;
 }
 
 /**
@@ -337,9 +348,11 @@ void JoystickNode::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointC
  */
 void JoystickNode::ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr)	
 {
+	cout<<"ENTERING ptamInfo"<<endl;
 	pthread_mutex_lock(&ptamInfo_mutex);
 	ptamInfo = *ptamInfoPtr;
 	pthread_mutex_unlock(&ptamInfo_mutex);
+	cout<<"EXITING ptamInfo"<<endl;
 }
 
 /**
@@ -347,12 +360,14 @@ void JoystickNode::ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr)
  */
 void JoystickNode::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr)
 {
+	cout<<"ENTERING gazeboModelStates"<<endl;
 	pthread_mutex_lock(&gazeboModelState_mutex);	
 	robotWorldPose = modelStatesPtr->pose.back();
 	if(just_init and not initState.model_name.length() and modelStatesPtr->name.back().length())
 		init_pub.publish(std_msgs::Empty());
 	initState.model_name = modelStatesPtr->name.back();
 	pthread_mutex_unlock(&gazeboModelState_mutex);
+	cout<<"EXITING gazeboModelStates"<<endl;
 }
 
 /**
@@ -360,6 +375,7 @@ void JoystickNode::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelSt
  */
 void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 {
+	cout<<"ENTERING plannerStatus"<<endl;
 	pthread_mutex_lock(&plannerStatus_mutex);
 	
 	if(!(plannerStatusPtr->data.compare("DONE")))
@@ -370,21 +386,24 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 		pthread_mutex_lock(&ptamInfo_mutex);
 		info = ptamInfo;
 		pthread_mutex_unlock(&ptamInfo_mutex);
-		lastRLInput.push_back((num_broken <= 3 and info.trackingQuality)?2:0);
-		for(auto i: lastRLInput)
-			qFile<<i<<'\t';
-		qFile<<';';
-		for(auto input : Helper::getTrajectories())
+		if(!episode.size() or (episode.size() and lastRLInput!=episode.back()))
 		{
-			vector<unsigned int> rlInput;
-			float Q;
-			tie(ignore, rlInput, Q) = learner.getAction(input);
-			for(auto i : rlInput)
+			lastRLInput.push_back((num_broken <= 3 and info.trackingQuality)?0:1);
+			for(auto i: lastRLInput)
 				qFile<<i<<'\t';
 			qFile<<';';
+			for(auto input : Helper::getTrajectories())
+			{
+				vector<unsigned int> rlInput;
+				float Q;
+				tie(ignore, rlInput, Q) = learner.getAction(input);
+				for(auto i : rlInput)
+					qFile<<i<<'\t';
+				qFile<<';';
+			}
+			qFile << '\n';
+			episode.push_back(lastRLInput);
 		}
-		qFile << '\n';
-		episode.push_back(lastRLInput);
 
 		if(num_broken>3 or !info.trackingQuality) 
 		{	
@@ -399,7 +418,7 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 			episode.clear();
 			num_episodes++;
 
-			if(num_episodes == MAX_EPISODES or num_steps >= MAX_STEPS)
+			if(num_episodes == MAX_EPISODES)// or num_steps >= MAX_STEPS)
 			{
 				if(!MODE.compare("TRAIN"))
 				{
@@ -423,13 +442,13 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 				}
 			}
 			init_pub.publish(std_msgs::Empty());
-			//planner_reset_pub.publish(std_msgs::Empty());//stop planner
+		//	planner_reset_pub.publish(std_msgs::Empty());//stop planner
 		}
 
 		else if(state==1)
 			sendCommand_pub.publish(std_msgs::Empty());
-		
-		/*else if(state and breakCount==1)
+		/*
+		else if(state and breakCount==1)
 		{
 			state = 2;
 			breakCount = 0;
@@ -441,10 +460,12 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 			expectedPathClient.call(expectedPath);
 			vector<float> poses = expectedPath.response.expectedPath.data;
 			vector<float> first(poses.begin(),poses.begin()+12), second(poses.begin()+12,poses.begin()+24), secondIP(poses.begin()+24,poses.end());
-			pcl::PointCloud<pcl::PointXYZ> firstPC = Helper::getPointCloud(first), secondPC = Helper::getPointCloud(second), currentPC = pointCloud;
+			pcl::PointCloud<pcl::PointXYZ> firstPC = Helper::getPointCloudAtPosition(first), secondPC = Helper::getPointCloudAtPosition(second), currentPC = pointCloud;
 			//vector<pcl::PointXYZ> firstCommon = Helper::pointCloudIntersection(currentPC, firstPC), secondCommon = Helper::pointCloudIntersection(firstPC, secondPC);
-			float Q1 = learner.getQ(Helper::getRLInput(first,currentPC));
-			float Q2 = learner.getQ(Helper::getRLInput(secondIP,firstPC));
+			float Q1, Q2;
+			tie(ignore,ignore,Q1) = learner.getAction(first);//,currentPC));
+			tie(ignore,ignore,Q2) = learner.getAction(secondIP);//,firstPC));
+			//float Q2 = learner.getQ(Helper::getRLInput(secondIP,firstPC));
 			cout<<"Q1: "<<Q1<<" Q2: "<<Q2<<endl;
 			if(Q1>Q_THRESH and Q2>Q_THRESH)
 				global_planner_pub.publish(std_msgs::Empty());
@@ -455,6 +476,7 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 	}
 	
 	pthread_mutex_unlock(&plannerStatus_mutex);
+	cout<<"EXITING plannerStatus"<<endl;
 
 }
 
@@ -463,49 +485,44 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
  */
 void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 {
+	cout<<"ENTERING sendCommand"<<endl;
 	if(initialized)
 	{
 		std_msgs::Float32MultiArray planner_input;
 		vector<vector<float> > inputs = Helper::getTrajectories();
 		
-		try 
-		{
-			//incremental training epsilon greedy
-			if(!MODE.compare("TRAIN"))
-				tie(lastCommand, lastRLInput, prevQ) = learner.getEpsilonGreedyStateAction(rlRatio,lastCommand);
-			else if(!MODE.compare("TEST"))
-				tie(lastCommand, lastRLInput, prevQ) = learner.getBestQStateAction(lastCommand);
-			else
-				tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction();
-			num_steps++;
+		//incremental training epsilon greedy
+		if(!MODE.compare("TRAIN"))
+			tie(lastCommand, lastRLInput, prevQ) = learner.getEpsilonGreedyStateAction(rlRatio,lastCommand);
+		else if(!MODE.compare("TEST"))
+			tie(lastCommand, lastRLInput, prevQ) = learner.getEpsilonGreedyStateAction(95,lastCommand);
+		else
+			tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction();
+		num_steps++;
 	
 	/*
-			vector<float> myPose = {robotWorldPose.position.x,robotWorldPose.position.y};
-			float nextAngle;
-			//map 1
-			vector<vector<float> > points = {{4.0,7.0,0.0}, {6.0,2.0,-tan(PI/4)}};
-				
-			//map 2
-			//vector<vector<float> > points = {{4.0,4.0,tan(PI/4)}, {7.0,6.0,0.0}};
-				
-			if(myPose[0]>=4)
-				nextAngle = points[1][2];
-			else
-				nextAngle = points[0][2];
-				
-			tie(lastCommand, lastRLInput, prevQ) = learner.getThresholdedClosestAngleStateAction(Q_THRESH, nextAngle, lastCommand);
-
-	*/
-			next_pose_pub.publish(Helper::getPoseFromInput(lastCommand, pose));
-
-			planner_input.data = lastCommand;
+		vector<float> myPose = {robotWorldPose.position.x,robotWorldPose.position.y};
+		float nextAngle;
+		//map 1
+		vector<vector<float> > points = {{4.0,7.0,0.0}, {6.0,2.0,-tan(PI/4)}};
 			
-			planner_pub.publish(planner_input);//send input to planner
-		}
-		catch (int e)
-		{
-			cout<<"Exception "<<e<<endl;
-			state = 0;
-		}
+		//map 2
+		//vector<vector<float> > points = {{4.0,4.0,tan(PI/4)}, {7.0,6.0,0.0}};
+				
+		if(myPose[0]>=4)
+			nextAngle = points[1][2];
+		else
+			nextAngle = points[0][2];
+				
+		tie(lastCommand, lastRLInput, prevQ) = learner.getThresholdedClosestAngleStateAction(Q_THRESH, nextAngle, lastCommand);
+*/
+	
+		next_pose_pub.publish(Helper::getPoseFromInput(lastCommand, pose));
+
+		planner_input.data = lastCommand;
+		
+		planner_pub.publish(planner_input);//send input to planner
+
 	}	
+	cout<<"EXITING sendCommand"<<endl;
 }
