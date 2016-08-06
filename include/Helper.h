@@ -64,6 +64,7 @@ class Helper
 	ros::NodeHandle nh;
 	ros::Subscriber pose_sub, info_sub, gazeboModelStates_sub, pointCloud_sub;
 	static ros::ServiceClient posePointCloudClient;
+	static int MAP;
 
 	void poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr);
 	void ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr);	
@@ -78,6 +79,6 @@ public:
 	static vector<pcl::PointXYZ> pointCloudIntersection(pcl::PointCloud<pcl::PointXYZ> pointCloudA, pcl::PointCloud<pcl::PointXYZ> pointCloudB);
 	static bool inLimits(float x, float y);
 	static vector<vector<float> > getTrajectories();
-	static void saveFeatureExpectation(vector<vector<vector<unsigned int> > > episodeList, string fileName);
-	static vector<vector<vector<unsigned int> > > readFeatureExpectation(string fileName);	
+	static void saveFeatureExpectation(vector<vector<vector<int> > > episodeList, string fileName);
+	static vector<vector<vector<int> > > readFeatureExpectation(string fileName);	
 };

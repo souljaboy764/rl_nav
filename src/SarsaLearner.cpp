@@ -10,10 +10,10 @@
 SarsaLearner::SarsaLearner()
 {
 	// Variables for reading values
-	unsigned int stateDir;
-	unsigned int stateHead;
-	unsigned int stateFOV;
-	//unsigned int statePFOV;
+	int stateDir;
+	int stateHead;
+	int stateFOV;
+	//int statePFOV;
 	float qValue;
 	// Input file
 	ifstream qMatFile("qMatData.txt");
@@ -28,9 +28,9 @@ SarsaLearner::SarsaLearner()
 	else 
 	{
 		qValid = true;
-		for(unsigned int i = 0; i<STATE_DIR_MAX; i++)
-			for(unsigned int j = 0; j<STATE_HEAD_MAX; j++)
-				for(unsigned int k = 0; k<STATE_FOV_MAX; k++)
+		for(int i = 0; i<STATE_DIR_MAX; i++)
+			for(int j = 0; j<STATE_HEAD_MAX; j++)
+				for(int k = 0; k<STATE_FOV_MAX; k++)
 					{
 						qMatFile >> stateDir >> stateHead >> stateFOV >> qValue;
 						qMatrix[stateDir][stateHead][stateFOV] = qValue;
@@ -46,7 +46,7 @@ SarsaLearner::SarsaLearner()
 	else 
 	{
 		w = vector<float>(NUM_FEATURES_SA);
-		for(unsigned int i = 0; i<NUM_FEATURES_SA; i++)
+		for(int i = 0; i<NUM_FEATURES_SA; i++)
 			wFile >> w[i];
 	}
 
@@ -67,15 +67,15 @@ SarsaLearner::~SarsaLearner()
 	if(qMatFile != NULL)
 	{
 		cout<<"Writing to File"<<endl;
-		for(unsigned int stateDir = 0; stateDir<STATE_DIR_MAX; stateDir++)
-			for(unsigned int stateHead = 0; stateHead<STATE_HEAD_MAX; stateHead++)
-				for(unsigned int stateFOV = 0; stateFOV<STATE_FOV_MAX; stateFOV++)
+		for(int stateDir = 0; stateDir<STATE_DIR_MAX; stateDir++)
+			for(int stateHead = 0; stateHead<STATE_HEAD_MAX; stateHead++)
+				for(int stateFOV = 0; stateFOV<STATE_FOV_MAX; stateFOV++)
 						qMatFile << stateDir << " " << stateHead << " " << stateFOV << " " << qMatrix[stateDir][stateHead][stateFOV] << endl;
 	}
 
 	if(wFile != NULL)
 	{
-		for(unsigned int i = 0; i<NUM_FEATURES_SA; i++)
+		for(int i = 0; i<NUM_FEATURES_SA; i++)
 			wFile << w[i] << " ";
 		wFile << endl;
 	}
@@ -86,14 +86,14 @@ SarsaLearner::~SarsaLearner()
 }
 
 // Function to return Q value
-float SarsaLearner::getQ(vector<unsigned int> stateAction)
+float SarsaLearner::getQ(vector<int> stateAction)
 {
 	if(!qValid)
 		return 0.0;
 
-	unsigned int stateDir = stateAction[0];
-	unsigned int stateHead = stateAction[1];
-	unsigned int stateFOV = stateAction[2];
+	int stateDir = stateAction[0];
+	int stateHead = stateAction[1];
+	int stateFOV = stateAction[2];
 
 	// Get q value
 	return qMatrix[stateDir][stateHead][stateFOV];
@@ -113,7 +113,7 @@ float SarsaLearner::getQ(vector<unsigned int> stateAction)
 	return rew_1 + rew_2;
 }*/
 
-float SarsaLearner::getReward(vector<unsigned int> stateAction)
+float SarsaLearner::getReward(vector<int> stateAction)
 {
 	vector<float> phi;
 	if(stateAction[0])
@@ -133,14 +133,14 @@ float SarsaLearner::getReward(vector<unsigned int> stateAction)
 }
 
 // Function to update Q value
-void SarsaLearner::updateQ(vector<unsigned int> stateAction, vector<unsigned int> nextStateAction)
+void SarsaLearner::updateQ(vector<int> stateAction, vector<int> nextStateAction)
 {
 	if(!qValid)
 		return;
 
-	unsigned int nextStateDir = nextStateAction[0];
-	unsigned int nextStateHead = nextStateAction[1];
-	unsigned int nextStateFOV = nextStateAction[2];
+	int nextStateDir = nextStateAction[0];
+	int nextStateHead = nextStateAction[1];
+	int nextStateFOV = nextStateAction[2];
 	
 	// Get q value
 	float qNext = qMatrix[nextStateDir][nextStateHead][nextStateFOV];
@@ -148,14 +148,14 @@ void SarsaLearner::updateQ(vector<unsigned int> stateAction, vector<unsigned int
 	updateQ(stateAction, qNext);
 }
 
-void SarsaLearner::updateQ(vector<unsigned int> stateAction, float qNext)
+void SarsaLearner::updateQ(vector<int> stateAction, float qNext)
 {
 	if(!qValid)
 		return;
 
-	unsigned int stateDir = stateAction[0];
-	unsigned int stateHead = stateAction[1];
-	unsigned int stateFOV = stateAction[2];
+	int stateDir = stateAction[0];
+	int stateHead = stateAction[1];
+	int stateFOV = stateAction[2];
 
 	float Q = qMatrix[stateDir][stateHead][stateFOV];
 
@@ -163,12 +163,12 @@ void SarsaLearner::updateQ(vector<unsigned int> stateAction, float qNext)
 	qMatrix[stateDir][stateHead][stateFOV] += SARSA_ALPHA * (getReward(stateAction) + SARSA_GAMMA * qNext - Q);
 }
 
-void SarsaLearner::episodeUpdate(vector<vector<vector<unsigned int> > > episodeList)
+void SarsaLearner::episodeUpdate(vector<vector<vector<int> > > episodeList)
 {
-	for(vector<vector<vector<unsigned int> > >::iterator episode = episodeList.begin(); episode!=episodeList.end(); ++episode)
+	for(vector<vector<vector<int> > >::iterator episode = episodeList.begin(); episode!=episodeList.end(); ++episode)
 	{
 		int i=0;
-		for(vector<vector<unsigned int> >::iterator rlStep = episode->begin(); rlStep!=episode->end()-1; ++rlStep)
+		for(vector<vector<int> >::iterator rlStep = episode->begin(); rlStep!=episode->end()-1; ++rlStep)
 			updateQ(*rlStep, *next(rlStep));
 		updateQ(episode->back(), 0);	
 	}

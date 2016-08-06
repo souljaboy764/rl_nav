@@ -10,13 +10,14 @@
 
 using namespace std;
 
-typedef tuple<vector<float>, vector<unsigned int>, float> CommandStateActionQ;
+typedef tuple<vector<float>, vector<int>, float> CommandStateActionQ;
 
 class PTAMLearner : public SarsaLearner
 {
 private:
 	ros::NodeHandle nh;
 	ros::Subscriber gazeboModelStates_sub, pointCloud_sub;
+	ros::ServiceClient SLclient;
 	static pthread_mutex_t gazeboModelState_mutex, pointCloud_mutex;
 
 	geometry_msgs::Pose robotWorldPose;
@@ -34,4 +35,6 @@ public:
 	CommandStateActionQ getBestQStateAction(vector<float> lastCommand);
 	CommandStateActionQ getEpsilonGreedyStateAction(float epsilon, vector<float> lastCommand);
 	CommandStateActionQ getThresholdedClosestAngleStateAction(float qThreshold, float nextAngle, vector<float> lastCommand);
+	CommandStateActionQ getSLClosestAngleStateAction(float nextAngle);
+	CommandStateActionQ getSLRandomStateAction();
 };	

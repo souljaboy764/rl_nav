@@ -6,6 +6,7 @@
   </node>
 
 	<node name="PlannerNode" pkg="turtlebot_nav" type="PlannerNode.py" output="screen" required="true"/>
+	<node name="SLPredictor" pkg="turtlebot_nav" type="SLPredictor.py" output="screen" required="true"/>
 
 	<node name="turtlebot_nav" pkg="turtlebot_nav" type="turtlebot_nav" output="screen" required="true">
 		<param name="mode" type="string" value="TRAIN" />

@@ -8,7 +8,7 @@ from tf.transformations import *
 from geometry_msgs.msg import Twist,Pose
 from std_msgs.msg import Float32MultiArray, Empty, String
 from visualization_msgs.msg import Marker
-from turtlebot_nav.srv import *
+from turtlebot_nav.srv import ExpectedPath, ExpectedPathResponse
 from gazebo_msgs.msg import ModelStates
 import datetime
 import time
@@ -25,12 +25,14 @@ class PLanner2D(object):
 
 		self.pathSRV = rospy.Service('/planner/global/expected_path', ExpectedPath, self.sendLookahead)
 
-		# self.points = [[2.0,4.0,tan(pi/3.0),7.0],
-		# 			   [4.0,7.0,0.0,14.0],
-		# 			   [6.0,4.0,tan(-pi/3.0),21.0],
-		# 			   [6.0, 2.0,tan(-pi/8.0),28.0]]
-		# self.points = [[4.0,7.0,0.0,14.0],[6.0, 2.0,-tan(pi/4.0),28.0]] #map 1
-		#self.points = [[4.0,4.0,tan(pi/4.0),14.0],[7.0,6.0,0.0,28.0]] #map 2
+		self.map = rospy.get_param('~map',-1)
+		if(self.map==1):
+			self.points = [[4.0,7.0,0.0,14.0],[6.0, 2.0,-tan(pi/4.0),28.0]] #map 1
+		elif(self.map==2):
+			self.points = [[4.0,4.0,tan(pi/4.0),14.0],[7.0,6.0,0.0,28.0]] #map 2
+		else:
+			self.points = []
+		
 		self.robotState = Pose()
 
 		self.inp_sub = rospy.Subscriber('/planner/input', Float32MultiArray, self.receiveInput)
@@ -141,8 +143,8 @@ class PLanner2D(object):
 		inp = [points[0][0],points[0][1],points[0][2],
 				points[-1][0],points[-1][1],points[-1][2],
 			   0.0,0.0,0.0,0.0,0.0,0.0]
-		print inp
-		print points[1:-1]
+		# print inp
+		# print points[1:-1]
 		status.data = "BUSY"
 		self.status_pub.publish(status)	
 		

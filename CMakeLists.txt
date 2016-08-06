@@ -33,6 +33,7 @@ find_package(gazebo REQUIRED)
 add_service_files(DIRECTORY srv
   FILES
   ExpectedPath.srv
+  SLprediction.srv
 )
 
 generate_messages(

@@ -77,13 +77,13 @@ private:
 
 	
 	string MODE;
-	int MAX_EPISODES, MAX_STEPS;
+	int MAX_EPISODES, MAX_STEPS, MAP;
 
 	int state, breakCount, num_broken, num_steps, num_episodes;
 	vector<float> lastCommand; //last command sent to the planner
-	vector<unsigned int> lastRLInput; //last RL Input
-	vector<vector<unsigned int> > episode;
-	vector<vector<vector<unsigned int> > > episodeList;
+	vector<int> lastRLInput; //last RL Input
+	vector<vector<int> > episode;
+	vector<vector<vector<int> > > episodeList;
 	bool badEstimate, just_init, initialized;
 	float rlRatio;
 	float prevQ; 	

@@ -14,6 +14,7 @@ ptam_com::ptam_info Helper::ptamInfo;
 geometry_msgs::Pose Helper::robotWorldPose;
 pcl::PointCloud<pcl::PointXYZ> Helper::currentPointCloud;
 ros::ServiceClient Helper::posePointCloudClient;
+int Helper::MAP;
 
 Helper::Helper()
 {
@@ -22,6 +23,9 @@ Helper::Helper()
 	info_sub = nh.subscribe("/vslam/info",100, &Helper::ptamInfoCb, this);
 	pointCloud_sub = nh.subscribe("/vslam/frame_points", 100, &Helper::pointCloudCb, this);
 	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &Helper::gazeboModelStatesCb, this);
+	MAP=-1;
+	ros::NodeHandle p_nh("~");
+	p_nh.getParam("map", MAP);
 }
 
 void Helper::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr)
@@ -116,8 +120,12 @@ vector<pcl::PointXYZ> Helper::pointCloudIntersection(pcl::PointCloud<pcl::PointX
 
 bool Helper::inLimits(float x, float y)
 {
-	//return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and (x<3.6 or x>4.4 or (x>=3.6 and x<=4.4 and y>6.4)); // map 1
-	return x>=-6 and x<=0 and y>=-1 and y<=3; //training map
+	if(MAP==1)
+		return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and (x<3.6 or x>4.4 or (x>=3.6 and x<=4.4 and y>6.4)); // map 1
+	else if(MAP==2)
+		return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and (x<3.6 or x>4.4 or (x>=3.6 and x<=4.4 and y>6.4)); // map 2
+	else if(MAP==-1)
+		return x>=-6 and x<=0 and y>=-1 and y<=3; //training map
 	//return true;
 }
 
@@ -149,7 +157,7 @@ vector<vector<float> > Helper::getTrajectories()
 	return inputs;
 }
 
-void Helper::saveFeatureExpectation(vector<vector<vector<unsigned int> > > episodeList, string fileName)
+void Helper::saveFeatureExpectation(vector<vector<vector<int> > > episodeList, string fileName)
 {
 	ofstream feFile(fileName);
 	for(auto episode : episodeList)
@@ -161,15 +169,15 @@ void Helper::saveFeatureExpectation(vector<vector<vector<unsigned int> > > episo
 		}
 }
 
-vector<vector<vector<unsigned int> > > Helper::readFeatureExpectation(string fileName)
+vector<vector<vector<int> > > Helper::readFeatureExpectation(string fileName)
 {
-	vector<vector<vector<unsigned int> > > episodeList = vector<vector<vector<unsigned int> > >();
-	vector<vector<unsigned int> > episode = vector<vector<unsigned int> >();
+	vector<vector<vector<int> > > episodeList = vector<vector<vector<int> > >();
+	vector<vector<int> > episode = vector<vector<int> >();
 	ifstream infile(fileName);
 	int num_episodes = 0;
 	if(infile.good())
 	{
-		unsigned int dir, angle, fov, status;
+		int dir, angle, fov, status;
 		while(infile)
 		{
 			infile >> dir >> angle >> fov >> status;

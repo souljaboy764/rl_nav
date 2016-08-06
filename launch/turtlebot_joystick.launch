@@ -5,23 +5,29 @@
     <param name="deadzone" value="0.12" />
   </node>
 
-	<node name="PlannerNode" pkg="turtlebot_nav" type="PlannerNode.py" output="screen" required="true"/>
+	<node name="PlannerNode" pkg="turtlebot_nav" type="PlannerNode.py" output="screen" required="true">
+		<param name="map" type="int" value="1" />
+	</node>
+	<node name="SLPredictor" pkg="turtlebot_nav" type="SLPredictor.py" output="screen" required="true"/>
 
 	<node name="turtlebot_nav" pkg="turtlebot_nav" type="turtlebot_nav" output="screen" required="true">
 		<!-- map 1 -->
-		<!-- <param name="init_x" type="double" value="2.6" />
+		<param name="init_x" type="double" value="2.6" />
 		<param name="init_y" type="double" value="2.6" />
-		<param name="init_Y" type="double" value="0.785" /> -->
+		<param name="init_Y" type="double" value="0.785" /> 
+		<param name="map" type="int" value="1" />
 
 		<!-- map 2 -->
 		<!-- <param name="init_x" type="double" value="2" />
 		<param name="init_y" type="double" value="2" />
-		<param name="init_Y" type="double" value="0" /> -->
+		<param name="init_Y" type="double" value="0" />
+		<param name="map" type="int" value="2" /> -->
 
 		<!-- training map -->
-		<param name="init_x" type="double" value="-1" />
+		<!-- <param name="init_x" type="double" value="-1" />
 		<param name="init_y" type="double" value="1" />
 		<param name="init_Y" type="double" value="0.4" />
+		<param name="map" type="int" value="-1" /> -->
 
 	</node>
 

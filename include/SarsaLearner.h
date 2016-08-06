@@ -26,9 +26,9 @@ protected:
 public:
 	SarsaLearner();
 	~SarsaLearner();
-	float getQ(vector<unsigned int> stateAction);
-	void updateQ(vector<unsigned int> stateAction, vector<unsigned int> nextStateAction);
-	void updateQ(vector<unsigned int> stateAction, float qNext);
-	void episodeUpdate(vector<vector<vector<unsigned int> > > episodeList);
-	float getReward(vector<unsigned int> stateAction);
+	float getQ(vector<int> stateAction);
+	void updateQ(vector<int> stateAction, vector<int> nextStateAction);
+	void updateQ(vector<int> stateAction, float qNext);
+	void episodeUpdate(vector<vector<vector<int> > > episodeList);
+	float getReward(vector<int> stateAction);
 };
