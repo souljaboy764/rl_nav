@@ -24,11 +24,11 @@
 		<param name="map" type="int" value="2" /> -->
 
 		<!-- training map -->
-		<!-- <param name="init_x" type="double" value="-1" />
+<!-- 		<param name="init_x" type="double" value="-1" />
 		<param name="init_y" type="double" value="1" />
 		<param name="init_Y" type="double" value="0.4" />
-		<param name="map" type="int" value="-1" /> -->
-
+		<param name="map" type="int" value="-1" />
+ -->
 	</node>
 
 	

@@ -3,6 +3,8 @@
 #include "Helper.h"
 #include "PTAMLearner.h"
 
+#include <ros/package.h>
+
 #include <turtlebot_nav/SLprediction.h>
 
 using namespace std;
@@ -43,8 +45,6 @@ PTAMLearner::PTAMLearner()
 						slMatrix[stateDir][stateHead][stateFOV] = bool(slValue);
 					}
 	}
-
-	slMatrix
 }
 
 void PTAMLearner::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr)

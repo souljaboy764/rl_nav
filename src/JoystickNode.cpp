@@ -509,7 +509,7 @@ void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 		}	
 		
 		else
-			tie(lastCommand, lastRLInput, prevQ) = learner.getRandomStateAction();
+			tie(lastCommand, lastRLInput, prevQ) = learner.getSLRandomStateAction();
 
 		
 				num_steps++;
