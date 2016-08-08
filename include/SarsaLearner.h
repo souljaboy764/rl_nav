@@ -9,7 +9,7 @@ protected:
 	bool qValid;
 	// Q Matrix dimension sizes
 	static const int STATE_DIR_MAX = 2;
-	static const int STATE_HEAD_MAX = 30;//60;
+	static const int STATE_HEAD_MAX = 20;
 	static const int STATE_FOV_MAX = 20;
 
 	// SARSA parameters

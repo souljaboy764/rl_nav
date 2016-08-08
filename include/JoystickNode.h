@@ -21,7 +21,6 @@
 #include <gazebo_msgs/ModelStates.h>
 #include <gazebo_msgs/ModelState.h>
 
-#define Q_THRESH -10
 using namespace std;
 
 class JoystickNode
@@ -78,7 +77,7 @@ private:
 	
 	string MODE;
 	int MAX_EPISODES, MAX_STEPS, MAP;
-
+	float Q_THRESH;
 	int state, breakCount, num_broken, num_steps, num_episodes;
 	vector<float> lastCommand; //last command sent to the planner
 	vector<int> lastRLInput; //last RL Input

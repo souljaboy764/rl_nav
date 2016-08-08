@@ -9,6 +9,7 @@
 	<node name="SLPredictor" pkg="turtlebot_nav" type="SLPredictor.py" output="screen" required="true"/>
 
 	<node name="turtlebot_nav" pkg="turtlebot_nav" type="turtlebot_nav" output="screen" required="true" launch-prefix="valgrind ">
+		<param name="qThresh" type="double" value="-0.2" />	
 		<!-- map 1 -->
 		<param name="init_x" type="double" value="2.6" />
 		<param name="init_y" type="double" value="2.6" />

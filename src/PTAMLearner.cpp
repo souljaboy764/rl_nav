@@ -89,38 +89,29 @@ CommandStateActionQ PTAMLearner::getBestQStateAction(vector<float> lastCommand)
 {
 	vector<CommandStateActionQ> result;
 	int index;
-	float maxQ = numeric_limits<float>::infinity();  //init max Q to negative infinity
+	float maxQ = -numeric_limits<float>::infinity();  //init max Q to negative infinity
 	float Q;
-	cout<<"BAD ALLOC"<<endl;
 	vector<vector<float> > inputs = Helper::getTrajectories();
-	cout<<"maybe no"<<endl;
+	
 	for(vector<vector<float> >::iterator inp = inputs.begin(); inp!=inputs.end(); ++inp)
 	{	
-		cout<<"in loop "<<inp-inputs.begin()<<endl;
 		if(lastCommand.size() and 
 			(	!(lastCommand[12]+(*inp)[12]) and 
 				!(lastCommand[5] + (*inp)[5]) and 
 				!(19*fabs(lastCommand[5])/30.0 - 19*fabs((*inp)[5])/30.0)))
 			continue;
 		result.push_back(getAction(*inp));
-		cout<<"pushed back in loop "<<inp - inputs.begin()<<endl;
 		Q = get<2>(result.back());
-		cout<<"got Q in loop "<<inp-inputs.begin()<<endl;
-		if(maxQ>Q)
+		if(maxQ<Q)
 		{
 			maxQ = Q;
-			cout<<"maxQ in loop "<<inp-inputs.begin()<<endl;
 			index = result.size()-1;
-			cout<<"got index in loop "<<inp-inputs.begin()<<endl;
 		}
 	}
 
-	if(maxQ == numeric_limits<float>::infinity())
-	{
+	if(maxQ == -numeric_limits<float>::infinity())
 		index = rand()%inputs.size();
-		cout<<"OOPS "<<index<<endl;
-	}
-	cout<<"returning "<<index<<" "<<result.size()<<endl;
+	
 	return result[index];
 }
 
@@ -161,7 +152,7 @@ CommandStateActionQ PTAMLearner::getThresholdedClosestAngleStateAction(float qTh
 		if(get<2>(input) > qThreshold)
 			potentialInputs.push_back(input);
 	}
-	
+	  
 	if(potentialInputs.size()<1)
 		return getBestQStateAction(lastCommand);
 	else

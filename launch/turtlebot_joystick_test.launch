@@ -9,6 +9,7 @@
 	<node name="SLPredictor" pkg="turtlebot_nav" type="SLPredictor.py" output="screen" required="true"/>
 
 	<node name="turtlebot_nav" pkg="turtlebot_nav" type="turtlebot_nav" output="screen" required="true">
+		<param name="qThresh" type="double" value="-0.2" />	
 		<param name="mode"  type="string" value="TEST" />
 		<param name="num_episodes" type="int" value="20" />
 		<param name="max_steps" type="int" value="1000" />

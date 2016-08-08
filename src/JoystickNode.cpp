@@ -58,6 +58,7 @@ JoystickNode::JoystickNode()
 	initialized = false;
 	initY = 0;
 	num_broken = 0;
+	Q_THRESH = 0;
 		
 	qFile.open("qIRLData_SVM.txt",ios::app);
 	
@@ -79,6 +80,7 @@ JoystickNode::JoystickNode()
 	float initYaw;
 	MAP=-1;
 	ros::NodeHandle p_nh("~");
+	p_nh.getParam("qThresh", Q_THRESH);
 	p_nh.getParam("mode", MODE);
 	p_nh.getParam("num_episodes", MAX_EPISODES);
 	p_nh.getParam("max_steps", MAX_STEPS);
@@ -89,11 +91,13 @@ JoystickNode::JoystickNode()
 	
 	initState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, initYaw);
 
-	if(MODE.length()>0)
+	if(!MODE.compare("TRAIN") or !MODE.compare("TEST"))
 	{
 		state = 1;
 		init_pub.publish(std_msgs::Empty());
 	}
+	else if(!MODE.compare("MAP"))
+		state = 2;
 }
 
 JoystickNode::~JoystickNode()
@@ -101,6 +105,7 @@ JoystickNode::~JoystickNode()
 	qFile.close();
 	//cout<<"Quitting JoystickNode"<<endl;
 	ros::NodeHandle p_nh("~");
+	p_nh.deleteParam("qThresh");
 	p_nh.deleteParam("mode");
 	p_nh.deleteParam("num_episodes");
 	p_nh.deleteParam("max_steps");
@@ -182,8 +187,10 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 		else
 		{
 			initialized = true;
-			if(state)
+			if(state==1)
 				sendCommand_pub.publish(std_msgs::Empty());
+			else if(state==2)
+				global_planner_pub.publish(std_msgs::Empty());
 		}
 	}
 	else
@@ -219,7 +226,15 @@ void JoystickNode::globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPt
 	geometry_msgs::PoseStamped ps;
 	ps = Helper::getPoseFromInput(input, pose);
 	expected_pub.publish(ps);
-	if(!MODE.compare("MAP") and Q<Q_THRESH)
+	ptam_com::ptam_info info;
+		
+	pthread_mutex_lock(&ptamInfo_mutex);
+	info = ptamInfo;
+	pthread_mutex_unlock(&ptamInfo_mutex);
+	
+	if(num_broken>3 or !info.trackingQuality)
+		planner_reset_pub.publish(std_msgs::Empty());//stop planner
+	else if(!MODE.compare("MAP") and Q<Q_THRESH)
 	{
 		//cout<<robotWorldPose.position.x<<" "<<robotWorldPose.position.y<<" "<<Helper::getPoseOrientation(robotWorldPose.orientation)[2]<<endl;
 		//cout<<Q<< " " ;
@@ -439,7 +454,7 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 		}
 		else if(state==1)
 		{
-			if(!MODE.compare("MAP") and breakCount==1)
+			if(!MODE.compare("MAP"))
 			{
 				state = 2;
 				breakCount = 0;
@@ -461,10 +476,11 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 			tie(ignore,ignore,Q1) = learner.getAction(first);//,currentPC));
 			tie(ignore,ignore,Q2) = learner.getAction(secondIP);//,firstPC));
 			//float Q2 = learner.getQ(Helper::getRLInput(secondIP,firstPC));
-			//cout<<"Q1: "<<Q1<<" Q2: "<<Q2<<endl;
+			cout<<"Q1: "<<Q1<<" Q2: "<<Q2<<endl;
 			if(Q1>Q_THRESH and Q2>Q_THRESH)
 				global_planner_pub.publish(std_msgs::Empty());
-			sendCommand_pub.publish(std_msgs::Empty());
+			else
+				sendCommand_pub.publish(std_msgs::Empty());
 		}
 		else
 			planner_reset_pub.publish(std_msgs::Empty());//stop planner*/
@@ -495,9 +511,9 @@ void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 			float nextAngle;
 			vector<vector<float> > points;
 			if(MAP==1)//map 1
-				points = {{4.0,7.0,0.0}, {6.0,2.0,-tan(PI/4)}};
+				points = {{4.0,7.0,0.0}, {6.0,2.0,PI/4}};
 			else if(MAP==2)//map 2
-				points = {{4.0,4.0,tan(PI/4)}, {7.0,6.0,0.0}};
+				points = {{4.0,4.0,PI/4}, {7.0,6.0,0.0}};
 					
 			if(myPose[0]>=4)
 				nextAngle = points[1][2];
