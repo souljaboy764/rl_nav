@@ -4,7 +4,7 @@ using namespace std;
 
 class SarsaLearner
 {
-private:
+protected:
 
 	bool qValid;
 	// Q Matrix dimension sizes
@@ -19,7 +19,7 @@ private:
 	// Reward function features
 	static const int NUM_FEATURES_SA = 5;
 
-protected:
+
 	float qMatrix[STATE_DIR_MAX][STATE_HEAD_MAX][STATE_FOV_MAX]; // Matrix for Q Values
 	vector<float> w; //reward weights
 

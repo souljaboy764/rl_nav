@@ -1,3 +1,5 @@
+#include <fstream>
+
 #include "Helper.h"
 #include "PTAMLearner.h"
 
@@ -14,6 +16,35 @@ PTAMLearner::PTAMLearner()
 	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &PTAMLearner::gazeboModelStatesCb, this);
 	SLclient = nh.serviceClient<turtlebot_nav::SLprediction>("/rl/sl_prediction");
 	srand (time(NULL));
+	
+	ifstream slMatFile(ros::package::getPath("turtlebot_nav")+"/slMatData.txt");
+
+	// Check for failure
+	if(slMatFile == NULL)
+	{
+		cout<<"Invalid sl file"<<endl;
+		slValid = false;
+	}
+	else 
+	{
+		slValid = true;
+		
+		int stateDir;
+		int stateHead;
+		int stateFOV;
+		
+		int slValue;
+
+		for(int i = 0; i<STATE_DIR_MAX; i++)
+			for(int j = 0; j<STATE_HEAD_MAX; j++)
+				for(int k = 0; k<STATE_FOV_MAX; k++)
+					{
+						slMatFile >> stateDir >> stateHead >> stateFOV >> slValue;
+						slMatrix[stateDir][stateHead][stateFOV] = bool(slValue);
+					}
+	}
+
+	slMatrix
 }
 
 void PTAMLearner::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr)
@@ -152,22 +183,32 @@ CommandStateActionQ PTAMLearner::getThresholdedClosestAngleStateAction(float qTh
 	}
 }
 
-CommandStateActionQ PTAMLearner::getSLClosestAngleStateAction(float nextAngle)
+vector<CommandStateActionQ> PTAMLearner::getSLActions()
 {
-	vector<CommandStateActionQ> potentialInputs;
-	float currentAngle = Helper::getPoseOrientation(robotWorldPose.orientation)[2], min_diff = numeric_limits<float>::infinity(), angle_diff;
-	
-	turtlebot_nav::SLprediction sLprediction;
+	if(!slValid)
+		return vector<CommandStateActionQ>();
 
+	vector<CommandStateActionQ> potentialInputs;
+	
 	for(auto trajectory : Helper::getTrajectories())
 	{	
 		CommandStateActionQ input = getAction(trajectory);
-		sLprediction.request.stateAction.data = get<1>(input);
-		SLclient.call(sLprediction);
-		if(!sLprediction.response.breaking.data)
+		vector<int> stateAction = get<1>(input);
+
+		if(slMatrix[stateAction[0]][stateAction[1]][stateAction[2]])
 			potentialInputs.push_back(input);
 	}
-	
+	return potentialInputs;
+}
+
+CommandStateActionQ PTAMLearner::getSLClosestAngleStateAction(float nextAngle)
+{
+	if(!slValid)
+		return getRandomStateAction();
+
+	vector<CommandStateActionQ> potentialInputs = getSLActions();
+	float currentAngle = Helper::getPoseOrientation(robotWorldPose.orientation)[2], min_diff = numeric_limits<float>::infinity(), angle_diff;
+		
 	CommandStateActionQ result = getRandomStateAction();
 	for(auto input : potentialInputs)
 	{
@@ -184,19 +225,12 @@ CommandStateActionQ PTAMLearner::getSLClosestAngleStateAction(float nextAngle)
 
 CommandStateActionQ PTAMLearner::getSLRandomStateAction()
 {
-	vector<CommandStateActionQ> potentialInputs;
-	float currentAngle = Helper::getPoseOrientation(robotWorldPose.orientation)[2], min_diff = numeric_limits<float>::infinity(), angle_diff;
-	
-	turtlebot_nav::SLprediction sLprediction;
+	if(!slValid)
+		return getRandomStateAction();
+
+	vector<CommandStateActionQ> potentialInputs = getSLActions();
 	vector<vector<float> > trajs = Helper::getTrajectories();
-	for(auto trajectory : trajs)
-	{	
-		CommandStateActionQ input = getAction(trajectory);
-		sLprediction.request.stateAction.data = get<1>(input);
-		SLclient.call(sLprediction);
-		if(!sLprediction.response.breaking.data)
-			potentialInputs.push_back(input);
-	}
+	
 	cout<<"SLINPUTS "<<potentialInputs.size()<<" "<<trajs.size()<<endl;
 	if(potentialInputs.size())
 		return potentialInputs[rand()%potentialInputs.size()];

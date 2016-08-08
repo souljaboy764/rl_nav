@@ -22,6 +22,9 @@ private:
 
 	geometry_msgs::Pose robotWorldPose;
 	pcl::PointCloud<pcl::PointXYZ> currentPointCloud;
+
+	bool slMatrix[STATE_DIR_MAX][STATE_HEAD_MAX][STATE_FOV_MAX]; // Matrix for sl predictions
+	bool slValid;
 	
 	void gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr);
 	void pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPtr);	
@@ -37,4 +40,5 @@ public:
 	CommandStateActionQ getThresholdedClosestAngleStateAction(float qThreshold, float nextAngle, vector<float> lastCommand);
 	CommandStateActionQ getSLClosestAngleStateAction(float nextAngle);
 	CommandStateActionQ getSLRandomStateAction();
+	vector<CommandStateActionQ> getSLActions();
 };	

@@ -5,6 +5,8 @@
 
 #include <cmath>
 
+#include <ros/package.h>
+
 #include "SarsaLearner.h"
 
 SarsaLearner::SarsaLearner()
@@ -16,8 +18,8 @@ SarsaLearner::SarsaLearner()
 	//int statePFOV;
 	float qValue;
 	// Input file
-	ifstream qMatFile("qMatData.txt");
-	ifstream wFile("wData.txt");
+	ifstream qMatFile(ros::package::getPath("turtlebot_nav")+"/qMatData.txt");
+	ifstream wFile(ros::package::getPath("turtlebot_nav")+"/wData.txt");
 
 	// Check for failure
 	if(qMatFile == NULL)
@@ -59,8 +61,8 @@ SarsaLearner::SarsaLearner()
 SarsaLearner::~SarsaLearner()
 {
 	// Output file
-	ofstream qMatFile("qMatData.txt");
-	ofstream wFile("wData.txt");
+	ofstream qMatFile(ros::package::getPath("turtlebot_nav")+"/qMatData.txt");
+	ofstream wFile(ros::package::getPath("turtlebot_nav")+"/wData.txt");
 
 	float qValue;
 	// Check for failure
