@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import roslib; roslib.load_manifest('turtlebot_nav')
+import roslib; roslib.load_manifest('rl_nav')
 import rospy
 
 from numpy import *

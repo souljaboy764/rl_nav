@@ -5,10 +5,9 @@
     <param name="deadzone" value="0.12" />
   </node>
 
-	<node name="PlannerNode" pkg="turtlebot_nav" type="PlannerNode.py" output="screen" required="true"/>
-	<node name="SLPredictor" pkg="turtlebot_nav" type="SLPredictor.py" output="screen" required="true"/>
+	<node name="PlannerNode" pkg="rl_nav" type="PlannerNode.py" output="screen" required="true"/>
 
-	<node name="turtlebot_nav" pkg="turtlebot_nav" type="turtlebot_nav" output="screen" required="true">
+	<node name="rl_nav" pkg="rl_nav" type="rl_nav" output="screen" required="true">
 		<param name="qThresh" type="double" value="-0.2" />	
 		<param name="mode"  type="string" value="TEST" />
 		<param name="num_episodes" type="int" value="20" />

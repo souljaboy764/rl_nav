@@ -78,7 +78,10 @@ public:
 	static geometry_msgs::PoseStamped getPoseFromInput(vector<float> input, geometry_msgs::PoseWithCovarianceStamped pose);
 	static vector<pcl::PointXYZ> pointCloudIntersection(pcl::PointCloud<pcl::PointXYZ> pointCloudA, pcl::PointCloud<pcl::PointXYZ> pointCloudB);
 	static bool inLimits(float x, float y);
+	static bool collisionFree(float xi, float xf, float yi, float yf, float angle, int dir, double orientation);
 	static vector<vector<float> > getTrajectories();
 	static void saveFeatureExpectation(vector<vector<vector<int> > > episodeList, string fileName);
-	static vector<vector<vector<int> > > readFeatureExpectation(string fileName);	
+	static vector<vector<vector<int> > > readFeatureExpectation(string fileName);
+	
+	static bool up, down, left, right;
 };

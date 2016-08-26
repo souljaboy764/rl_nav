@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(turtlebot_nav)
+project(rl_nav)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -33,7 +33,6 @@ find_package(gazebo REQUIRED)
 add_service_files(DIRECTORY srv
   FILES
   ExpectedPath.srv
-  SLprediction.srv
 )
 
 generate_messages(
@@ -43,7 +42,7 @@ generate_messages(
 
 catkin_package(
 #  INCLUDE_DIRS include
-# LIBRARIES turtlebot_nav
+# LIBRARIES rl_nav
 #  CATKIN_DEPENDS message_runtime joy roscpp rospy std_msgs 
 #  DEPENDS system_lib
 )
@@ -61,6 +60,6 @@ link_directories(${GAZEBO_LIBRARY_DIRS} )
 
 set(CMAKE_CXX_FLAGS "-std=c++11")
 
-add_executable(turtlebot_nav src/main_controller.cpp src/JoystickNode.cpp src/PTAMLearner.cpp src/SarsaLearner.cpp src/Helper.cpp)
-add_dependencies(turtlebot_nav DEPS ${${PROJECT_NAME}_EXPORTED_TARGETS}})
-target_link_libraries(turtlebot_nav ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${GAZEBO_LIBRARIES})
+add_executable(rl_nav src/main_controller.cpp src/JoystickNode.cpp src/PTAMLearner.cpp src/SupervisedLearner.cpp src/SarsaLearner.cpp src/Helper.cpp)
+add_dependencies(rl_nav DEPS ${${PROJECT_NAME}_EXPORTED_TARGETS}})
+target_link_libraries(rl_nav ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${GAZEBO_LIBRARIES})

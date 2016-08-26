@@ -1,15 +1,16 @@
 #!/usr/bin/python
-import roslib; roslib.load_manifest('turtlebot_nav')
+import roslib; roslib.load_manifest('rl_nav')
 import rospy
 
 from pathplanner import *
 from numpy import *
 from tf.transformations import *
-from geometry_msgs.msg import Twist,Pose
+from geometry_msgs.msg import Twist, Pose, PoseWithCovarianceStamped, PoseStamped
 from std_msgs.msg import Float32MultiArray, Empty, String
 from visualization_msgs.msg import Marker
-from turtlebot_nav.srv import ExpectedPath, ExpectedPathResponse
+from rl_nav.srv import ExpectedPath, ExpectedPathResponse
 from gazebo_msgs.msg import ModelStates
+import tf
 import datetime
 import time
 
@@ -22,53 +23,115 @@ class PLanner2D(object):
 		self.vel_pub = rospy.Publisher('/cmd_vel_mux/input/teleop',Twist,queue_size=100)
 		self.status_pub = rospy.Publisher('/planner/status',String,queue_size=100)
 		self.inp_pub = rospy.Publisher('/planner/global/path', Float32MultiArray,queue_size=100)
-
+		self.safe_path_pub = rospy.Publisher("/rl/safe_action", Marker, queue_size=1);
+		self.unsafe_path_pub = rospy.Publisher("/rl/unsafe_action", Marker, queue_size=1);
 		self.pathSRV = rospy.Service('/planner/global/expected_path', ExpectedPath, self.sendLookahead)
 
 		self.map = rospy.get_param('~map',-1)
 		if(self.map==1):
 			self.points = [[4.0,7.0,0.0,14.0],[6.0, 2.0,-tan(pi/4.0),28.0]] #map 1
 		elif(self.map==2):
-			self.points = [[4.0,4.0,tan(pi/4.0),14.0],[7.0,6.0,0.0,28.0]] #map 2
+			self.points = [[4.0,4.0,tan(pi/4.0),14.0],[7.0,7.0,0.0,28.0]] #map 2
 		else:
 			self.points = []
 		
 		self.robotState = Pose()
+		self.robotPTAMPose = Pose()
+		self.robotPTAMWorldPose = Pose()
 
+		self.rlSafePath = Marker()
+		self.rlSafePath.id=0
+		self.rlSafePath.lifetime=rospy.Duration(1)
+		self.rlSafePath.header.frame_id = "/world"
+		self.rlSafePath.header.stamp = rospy.Time.now()
+		self.rlSafePath.ns = "pointcloud_publisher"
+		self.rlSafePath.action = Marker.ADD
+		self.rlSafePath.type = Marker.LINE_STRIP
+		self.rlSafePath.color.g=1.0
+		self.rlSafePath.color.a=1.0
+		self.rlSafePath.scale.x=0.01
+		
+		self.rlUnsafePath = Marker()
+		self.rlUnsafePath.id=0
+		self.rlUnsafePath.lifetime=rospy.Duration(1)
+		self.rlUnsafePath.header.frame_id = "/world"
+		self.rlUnsafePath.header.stamp = rospy.Time.now()
+		self.rlUnsafePath.ns = "pointcloud_publisher"
+		self.rlUnsafePath.action = Marker.ADD
+		self.rlUnsafePath.type = Marker.LINE_STRIP
+		self.rlUnsafePath.color.r=1.0
+		self.rlUnsafePath.color.a=1.0
+		self.rlUnsafePath.scale.x=0.01
+		
+
+		self.ptam_pose_sub = rospy.Subscriber("/vslam/pose_world", PoseWithCovarianceStamped, self.receivePTAMPose)
+		self.pose_sub = rospy.Subscriber("/my_pose", PoseStamped, self.receivePose)
 		self.inp_sub = rospy.Subscriber('/planner/input', Float32MultiArray, self.receiveInput)
 		self.inp_mul_sub = rospy.Subscriber('/planner/input/global', Empty, self.receiveInputGlobal)
 		self.reset_sub = rospy.Subscriber('/planner/reset', Empty, self.receiveBreak)
+		self.safe_traj_sub = rospy.Subscriber('/rl/safe_trajectories', Float32MultiArray, self.receiveSafeTrajs)
+		self.unsafe_traj_sub = rospy.Subscriber('/rl/unsafe_trajectories', Float32MultiArray, self.receiveUnsafeTrajs)
+		# self.PTAM_pose_sub = rospy.Subscriber("/vslam/pose", PoseWithCovarianceStamped, self.receivePTAMPose)
 		gazeboModelStates_sub = rospy.Subscriber("/gazebo/model_states", ModelStates, self.receiveGazeboModelStates)
-		self.points_done = 0
-		self.move_global = False
-		self.move_local = False
-		self.timer = None
+		
 		self.to = 0.0
 		self.tf = 28.0
 
-	def Time_Interval(self,euc_dist):
-		
-		if(euc_dist > 2 and euc_dist < 5):
-			return [2,19]
-		elif(euc_dist > 5 and euc_dist < 8):
-			return [2, 11]
-		elif(euc_dist > 8 and euc_dist < 10):
-			return [2,15]
-		else:
-			return [2,9]
+	def trajjer(self, data):
+		traj_list=[]
+		num_trajs = int(data[-1])
+		size_trajs = int(len(data)/float(num_trajs))
+		for i in range(num_trajs):
+			inp = data[i*size_trajs:(i+1)*size_trajs]
+			to = inp[-2]
+			tf = inp[-1]
+			coeffs = get_coeffs(inp[:-3],to,tf)
+			
+			t=to
+			traj=[]
+			while t<tf:
+				point0,kt0 = getPos(coeffs,to,tf,t,0.0)
+				traj.append(point0)
+				t = t + 0.1
+			traj_list = traj_list + traj
+			traj.reverse()
+			traj_list = traj_list + traj
+		return traj_list
 
-	#def sendCommand(self,event)
+	def receiveUnsafeTrajs(self, trajectories):
+		self.rlUnsafePath.pose = self.robotPTAMWorldPose
+		self.rlUnsafePath.points = self.trajjer(trajectories.data)
+		
+
+	def receiveSafeTrajs(self, trajectories):
+		self.rlSafePath.pose = self.robotPTAMWorldPose
+		self.rlSafePath.points = self.trajjer(trajectories.data)
+		
+
+	def receivePTAMPose(self, pose):
+		self.robotPTAMWorldPose = pose.pose.pose
+
+		self.rlSafePath.header.stamp = rospy.Time.now()
+		self.safe_path_pub.publish(self.rlSafePath)
+
+		self.rlUnsafePath.header.stamp = rospy.Time.now()
+		self.unsafe_path_pub.publish(self.rlUnsafePath)
+
+		# br = tf.TransformBroadcaster()
+		# br.sendTransform((pose.pose.pose.position.x, pose.pose.pose.position.y, pose.pose.pose.position.z),
+		# 				  [pose.pose.pose.orientation.x, pose.pose.pose.orientation.y, pose.pose.pose.orientation.z, pose.pose.pose.orientation.w],
+		# 				  rospy.Time.now(),
+		# 				  "camera_depth_optical_frame",
+		# 				  "world")
+
+	def receivePose(self, pose):
+		self.robotPTAMPose = pose.pose
 
 	def receiveGazeboModelStates(self,modelStates):
 		self.robotState = modelStates.pose[-1]
 
 	def receiveInput(self, inputArray):
-	# 	if(self.state==0):
-	# 		self.localInput = inputArray.data
-	# 		self.move_local = True
-	
-	# def moveLocal(self):
-		inp = inputArray.data#self.localInput
+		inp = inputArray.data
 		
 		status = String()
 		status.data = "BUSY"
@@ -78,7 +141,7 @@ class PLanner2D(object):
 		to = inp[-2]
 		tf = inp[-1]
 		coeffs = get_coeffs(inp[:-3],to,tf)
-
+		
 		self.status_pub.publish(status)
 		start_time = datetime.datetime.now()
 		t=to
@@ -109,11 +172,11 @@ class PLanner2D(object):
 			return 1
 
 	def receiveInputGlobal(self, empty):
-		pose = [self.robotState.position.x, self.robotState.position.y, 
-				tan(euler_from_quaternion([ self.robotState.orientation.x,
-										self.robotState.orientation.y,
-										self.robotState.orientation.z,
-										self.robotState.orientation.w])[2]),0]
+		pose = [self.robotPTAMPose.position.x, self.robotPTAMPose.position.y, 
+				tan(euler_from_quaternion([ self.robotPTAMPose.orientation.x,
+										self.robotPTAMPose.orientation.y,
+										self.robotPTAMPose.orientation.z,
+										self.robotPTAMPose.orientation.w])[2]),0]
 
 		if pose[0]>=4:
 			points_done = 1
@@ -132,12 +195,12 @@ class PLanner2D(object):
 		# 		points_done = 1
 		# 	else:
 		# 		points_done = 0
-		points = [[self.robotState.position.x, self.robotState.position.y, 
-				tan(euler_from_quaternion([ self.robotState.orientation.x,
-										self.robotState.orientation.y,
-										self.robotState.orientation.z,
-										self.robotState.orientation.w])[2]),0]] + self.points[points_done:]
-		cmdvel = []
+		points = [[self.robotPTAMPose.position.x, self.robotPTAMPose.position.y, 
+				tan(euler_from_quaternion([ self.robotPTAMPose.orientation.x,
+										self.robotPTAMPose.orientation.y,
+										self.robotPTAMPose.orientation.z,
+										self.robotPTAMPose.orientation.w])[2]),0]] + self.points[points_done:]
+		
 		status = String()
 		self.state = 1
 		inp = [points[0][0],points[0][1],points[0][2],
@@ -166,18 +229,17 @@ class PLanner2D(object):
 			dx,dy,dk = getVel(coeffs,to,tf,t)
 			point1,kt1 = getPos(coeffs,to,tf,t,points[0][1])
 			point2,kt2 = getPos(coeffs,to,tf,min(t+1,tf),points[0][1])
-			stateAction = [ 0.0,0.0,0.0,
-							point2.z - point1.z, point2.x - point1.x, tan(arctan(kt2) - arctan(kt1)),
-				   0.0,0.0,0.0,0.0,0.0,0.0,0.0]
 			message = Float32MultiArray()
-			message.data= stateAction
+			message.data= [ 0.0,0.0,0.0,
+							point2.z - point1.z, point2.x - point1.x, tan(arctan(kt2) - arctan(kt1)),
+				   			0.0,0.0,0.0,0.0,0.0,0.0,0.0]
 			self.inp_pub.publish(message)
 			#print self.robotState.position.x, self.robotState.position.y
 			self.status_pub.publish(status)
-			yaw = euler_from_quaternion([ self.robotState.orientation.x,
-										self.robotState.orientation.y,
-										self.robotState.orientation.z,
-										self.robotState.orientation.w])[2]
+			yaw = euler_from_quaternion([ self.robotPTAMPose.orientation.x,
+										self.robotPTAMPose.orientation.y,
+										self.robotPTAMPose.orientation.z,
+										self.robotPTAMPose.orientation.w])[2]
 			if fabs(yaw) < pi/2.0:
 				cmd.linear.x = sign(dx) * sqrt(dx**2 + dy**2)
 			elif fabs(yaw) > pi/2.0:
@@ -198,24 +260,21 @@ class PLanner2D(object):
 		self.status_pub.publish(status)
 
 	def sendLookahead(self, req):
-		pose = [self.robotState.position.x, self.robotState.position.y, 
-				tan(euler_from_quaternion([ self.robotState.orientation.x,
-										self.robotState.orientation.y,
-										self.robotState.orientation.z,
-										self.robotState.orientation.w])[2]),0]
+		pose = [self.robotPTAMPose.position.x, self.robotPTAMPose.position.y, 
+				tan(euler_from_quaternion([ self.robotPTAMPose.orientation.x,
+										self.robotPTAMPose.orientation.y,
+										self.robotPTAMPose.orientation.z,
+										self.robotPTAMPose.orientation.w])[2]),0]
 
 		if pose[0]>4:
 			points_done = 1
 		else:
 			points_done = 0
-		points = [[self.robotState.position.x, self.robotState.position.y, 
-				tan(euler_from_quaternion([ self.robotState.orientation.x,
-										self.robotState.orientation.y,
-										self.robotState.orientation.z,
-										self.robotState.orientation.w])[2]),0]] + self.points[points_done:]
-		cmdvel = []
-		status = String()
-		self.state = 1
+		points = [[self.robotPTAMPose.position.x, self.robotPTAMPose.position.y, 
+				tan(euler_from_quaternion([ self.robotPTAMPose.orientation.x,
+										self.robotPTAMPose.orientation.y,
+										self.robotPTAMPose.orientation.z,
+										self.robotPTAMPose.orientation.w])[2]),0]] + self.points[points_done:]
 		inp = [points[0][0],points[0][1],points[0][2],
 				points[-1][0],points[-1][1],points[-1][2],
 			   0.0,0.0,0.0,0.0,0.0,0.0]
@@ -245,30 +304,8 @@ class PLanner2D(object):
 
 	def receiveBreak(self, empty):
 		self.state = 0
-		if self.timer != None:
-			self.timer.shutdown()
-			self.timer = None
-		self.move_global = False
-		self.move_local = False
 		self.vel_pub.publish(Twist())
 		self.vel_pub.publish(Twist())
-
-
-	# def spin(self):
-	# 	r = rospy.Rate(self.rate)
-	# 	while not rospy.is_shutdown():
-	# 		if (self.move_global == False and self.move_local==False):
-	# 			r.sleep()
-	# 			continue
-	# 		else if self.move_local==True:
-
-	# 		self.xc = float(self.xf + self.x0)/2.0
-	# 		if self.y0 > self.yf:
-	# 			self.yc = float(self.yf - self.y0)/2.0
-	# 		else:
-	# 			self.yc = float(self.yf - self.y0)/2.0
-	# 		self.move_robot()
-	# 		return
 
 rospy.init_node('PlannerNode')
 PLanner2D()

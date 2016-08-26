@@ -5,8 +5,6 @@
 
 #include <ros/package.h>
 
-#include <turtlebot_nav/SLprediction.h>
-
 using namespace std;
 
 pthread_mutex_t PTAMLearner::gazeboModelState_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -16,35 +14,7 @@ PTAMLearner::PTAMLearner()
 {
 	pointCloud_sub = nh.subscribe("/vslam/frame_points", 100, &PTAMLearner::pointCloudCb, this);
 	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &PTAMLearner::gazeboModelStatesCb, this);
-	SLclient = nh.serviceClient<turtlebot_nav::SLprediction>("/rl/sl_prediction");
 	srand (time(NULL));
-	
-	ifstream slMatFile(ros::package::getPath("turtlebot_nav")+"/slMatData.txt");
-
-	// Check for failure
-	if(slMatFile == NULL)
-	{
-		cout<<"Invalid sl file"<<endl;
-		slValid = false;
-	}
-	else 
-	{
-		slValid = true;
-		
-		int stateDir;
-		int stateHead;
-		int stateFOV;
-		
-		int slValue;
-
-		for(int i = 0; i<STATE_DIR_MAX; i++)
-			for(int j = 0; j<STATE_HEAD_MAX; j++)
-				for(int k = 0; k<STATE_FOV_MAX; k++)
-					{
-						slMatFile >> stateDir >> stateHead >> stateFOV >> slValue;
-						slMatrix[stateDir][stateHead][stateFOV] = bool(slValue);
-					}
-	}
 }
 
 void PTAMLearner::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr)
@@ -186,11 +156,11 @@ vector<CommandStateActionQ> PTAMLearner::getSLActions()
 		CommandStateActionQ input = getAction(trajectory);
 		vector<int> stateAction = get<1>(input);
 
-		if(slMatrix[stateAction[0]][stateAction[1]][stateAction[2]])
+		if(!predict(stateAction))
 			potentialInputs.push_back(input);
 	}
 	return potentialInputs;
-}
+}	
 
 CommandStateActionQ PTAMLearner::getSLClosestAngleStateAction(float nextAngle)
 {
@@ -211,7 +181,7 @@ CommandStateActionQ PTAMLearner::getSLClosestAngleStateAction(float nextAngle)
 			result = input;
 		}
 	}
-	return result;	
+	return result;
 }
 
 CommandStateActionQ PTAMLearner::getSLRandomStateAction()
@@ -222,9 +192,42 @@ CommandStateActionQ PTAMLearner::getSLRandomStateAction()
 	vector<CommandStateActionQ> potentialInputs = getSLActions();
 	vector<vector<float> > trajs = Helper::getTrajectories();
 	
-	cout<<"SLINPUTS "<<potentialInputs.size()<<" "<<trajs.size()<<endl;
 	if(potentialInputs.size())
 		return potentialInputs[rand()%potentialInputs.size()];
 	else
 		return getRandomStateAction();
+}
+
+CommandStateActionQ PTAMLearner::getBestSLStateAction(vector<float> lastCommand)
+{
+	if(!slValid)
+		return getBestQStateAction(lastCommand);
+
+	vector<CommandStateActionQ> result;
+	vector<CommandStateActionQ> potentialInputs = getSLActions();
+	int index;
+	float maxDist = -numeric_limits<float>::infinity();  //init max Distance to -infinity
+	float dist;
+	
+	for(auto inp : potentialInputs)
+	{	
+		vector<float> command = get<0>(inp);
+		if(lastCommand.size() and 
+			(	!(lastCommand[12]+ command[12]) and 
+				!(lastCommand[5] + command[5]) and 
+				!(19*fabs(lastCommand[5])/30.0 - 19*fabs(command[5])/30.0)))
+			continue;
+		result.push_back(inp);
+		dist = distance(get<1>(result.back()));
+		if(maxDist<dist)
+		{
+			maxDist = dist;
+			index = result.size()-1;
+		}
+	}
+
+	if(maxDist == -numeric_limits<float>::infinity())
+		return getSLRandomStateAction();
+	
+	return result[index];
 }

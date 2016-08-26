@@ -18,8 +18,8 @@ SarsaLearner::SarsaLearner()
 	//int statePFOV;
 	float qValue;
 	// Input file
-	ifstream qMatFile(ros::package::getPath("turtlebot_nav")+"/qMatData.txt");
-	ifstream wFile(ros::package::getPath("turtlebot_nav")+"/wData.txt");
+	ifstream qMatFile(ros::package::getPath("rl_nav")+"/qMatData.txt");
+	ifstream wFile(ros::package::getPath("rl_nav")+"/wData.txt");
 
 	// Check for failure
 	if(qMatFile == NULL)
@@ -61,8 +61,8 @@ SarsaLearner::SarsaLearner()
 SarsaLearner::~SarsaLearner()
 {
 	// Output file
-	ofstream qMatFile(ros::package::getPath("turtlebot_nav")+"/qMatData.txt");
-	ofstream wFile(ros::package::getPath("turtlebot_nav")+"/wData.txt");
+	ofstream qMatFile(ros::package::getPath("rl_nav")+"/qMatData.txt");
+	ofstream wFile(ros::package::getPath("rl_nav")+"/wData.txt");
 
 	float qValue;
 	// Check for failure

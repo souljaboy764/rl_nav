@@ -7,24 +7,21 @@
 #include <pcl_ros/point_cloud.h>
 
 #include "SarsaLearner.h"
+#include "SupervisedLearner.h"
 
 using namespace std;
 
 typedef tuple<vector<float>, vector<int>, float> CommandStateActionQ;
 
-class PTAMLearner : public SarsaLearner
+class PTAMLearner : public SarsaLearner, public SupervisedLearner
 {
 private:
 	ros::NodeHandle nh;
 	ros::Subscriber gazeboModelStates_sub, pointCloud_sub;
-	ros::ServiceClient SLclient;
 	static pthread_mutex_t gazeboModelState_mutex, pointCloud_mutex;
 
 	geometry_msgs::Pose robotWorldPose;
 	pcl::PointCloud<pcl::PointXYZ> currentPointCloud;
-
-	bool slMatrix[STATE_DIR_MAX][STATE_HEAD_MAX][STATE_FOV_MAX]; // Matrix for sl predictions
-	bool slValid;
 	
 	void gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr);
 	void pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPtr);	
@@ -40,5 +37,6 @@ public:
 	CommandStateActionQ getThresholdedClosestAngleStateAction(float qThreshold, float nextAngle, vector<float> lastCommand);
 	CommandStateActionQ getSLClosestAngleStateAction(float nextAngle);
 	CommandStateActionQ getSLRandomStateAction();
+	CommandStateActionQ getBestSLStateAction(vector<float> lastCommand);
 	vector<CommandStateActionQ> getSLActions();
 };	

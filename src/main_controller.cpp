@@ -3,7 +3,7 @@
 #include "ros/ros.h"
 int main(int argc, char **argv)
 {
-	ros::init(argc, argv, "turtlebot_nav");
+	ros::init(argc, argv, "rl_nav");
 	Helper helper;
 	JoystickNode joyNode;
 	ros::spin();

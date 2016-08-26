@@ -17,20 +17,22 @@
     <arg name="base" value="$(arg base)"/>
     <arg name="stacks" value="$(arg stacks)"/>
     <arg name="3d_sensor" value="$(arg 3d_sensor)"/>
-<!--   <arg name="x" value="-1"/>
+
+<!--training map-->
+  <!-- <arg name="x" value="-1"/>
   <arg name="y" value="1"/>
-  <arg name="Y" value="0.4"/>
- -->
+  <arg name="Y" value="0.4"/> -->
+
   <!--map 1-->
   <arg name="x" value="2"/>
-  <arg name="y" value="1"/>
+  <arg name="y" value="2"/>
   <arg name="Y" value="1.0472"/>
 
 <!--map 2-->
-  <!--<arg name="x" value="1"/>
+<!--   <arg name="x" value="1"/>
   <arg name="y" value="2"/>
-  <arg name="Y" value="0"/>-->
-
+  <arg name="Y" value="0"/>
+ -->
 
   </include>
 

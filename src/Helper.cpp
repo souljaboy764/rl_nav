@@ -15,7 +15,7 @@ geometry_msgs::Pose Helper::robotWorldPose;
 pcl::PointCloud<pcl::PointXYZ> Helper::currentPointCloud;
 ros::ServiceClient Helper::posePointCloudClient;
 int Helper::MAP;
-
+bool Helper::up, Helper::down, Helper::left, Helper::right;
 Helper::Helper()
 {
 	posePointCloudClient = nh.serviceClient<ptam_com::PosePointCloud>("/vslam/posepointcloud");
@@ -24,6 +24,7 @@ Helper::Helper()
 	pointCloud_sub = nh.subscribe("/vslam/frame_points", 100, &Helper::pointCloudCb, this);
 	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &Helper::gazeboModelStatesCb, this);
 	MAP=-1;
+	up = down = left = right = true;
 	ros::NodeHandle p_nh("~");
 	p_nh.getParam("map", MAP);
 }
@@ -122,37 +123,57 @@ bool Helper::inLimits(float x, float y)
 {
 	if(MAP==1)
 		return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and (x<3.6 or x>4.4 or (x>=3.6 and x<=4.4 and y>6.4)); // map 1
-	else if(MAP==2)
-		return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and (x<3.6 or x>4.4 or (x>=3.6 and x<=4.4 and y>6.4)); // map 2
-	else if(MAP==-1)
+	if(MAP==2)
+		return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and ((x<2.9 or x>5.1) and (y<3.1 or y>4.9)); // map 2
+	if(MAP==-1)
 		return x>=-6 and x<=0 and y>=-1 and y<=3; //training map
-	//return true;
+	return true;
+}
+
+bool Helper::collisionFree(float xi, float xf, float yi, float yf, float angle, int dir, double orientation)
+{
+	for(float i=0.05;i<=1;i+=0.05)
+//	for(float x=xi;x!=xf;x+=dir*0.01*cos(orientation + angle))
+//		for(float y=yi;y!=yf;y+=dir*0.01*sin(orientation + angle))
+			if(!inLimits(xi+i*dir*0.01*cos(orientation + angle), yi+i*dir*0.01*cos(orientation + angle)))
+				return false;
+	return true;
 }
 
 vector<vector<float> > Helper::getTrajectories()
 {
-	float angle = PI/90.0, num_angles = 14;
+	float angle = PI/90.0, num_angles = 14, x, y;
 	vector<vector<float> > inputs;
 	vector<double> orientation = getPoseOrientation(robotWorldPose.orientation);
 	
 	for(float i=-num_angles*angle ; i<=num_angles*angle ; i+=angle)
-	{			
+	{	
+		if(i<0 and !right)
+			continue;
+		if(i>0 and !left)
+			continue;	
 		vector<float> inp = {0.0,0.0,0.0, 
-							 cos(i), sin(i), tan(i),
-							 0.0,0.0,0.0,0.0,0.0,0.0,
-							 1.0,0.0,1.5};
-		float x = robotWorldPose.position.x + cos(orientation[2] + i);
-		float y = robotWorldPose.position.y + sin(orientation[2] + i);
-		if(inLimits(x,y))
-			inputs.push_back(inp);
+								 cos(i), sin(i), tan(i),
+								 0.0,0.0,0.0,0.0,0.0,0.0,
+								 1.0,0.0,1.5};
+		if(up)
+		{	
+			x = robotWorldPose.position.x + cos(orientation[2] + i);
+			y = robotWorldPose.position.y + sin(orientation[2] + i);
+			if(inLimits(x,y))// and collisionFree(robotWorldPose.position.x, x, robotWorldPose.position.y, y, i, 1, orientation[2]))
+				inputs.push_back(inp);
+		}
 
-		inp[3] *= -1.0;
-		inp[5] *= -1.0;
-		inp[12] *= -1.0;
-		x = robotWorldPose.position.x - cos(orientation[2] - i);
-		y = robotWorldPose.position.y - sin(orientation[2] - i);
-		if(inLimits(x,y))
-			inputs.push_back(inp);
+		if(down)
+		{
+			inp[3] *= -1.0;
+			inp[5] *= -1.0;
+			inp[12] *= -1.0;
+			x = robotWorldPose.position.x - cos(orientation[2] - i);
+			y = robotWorldPose.position.y - sin(orientation[2] - i);
+			if(inLimits(x,y))// and collisionFree(robotWorldPose.position.x, x, robotWorldPose.position.y, y, -i, -1, orientation[2]))
+				inputs.push_back(inp);
+		}
 	}
 	return inputs;
 }

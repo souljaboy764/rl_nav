@@ -9,6 +9,8 @@
 
 #include <ros/ros.h>
 
+#include <tf/transform_broadcaster.h>
+
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/Pose.h>
@@ -20,6 +22,7 @@
 #include <pcl_ros/point_cloud.h>
 #include <gazebo_msgs/ModelStates.h>
 #include <gazebo_msgs/ModelState.h>
+#include <visualization_msgs/Marker.h>
 
 using namespace std;
 
@@ -53,8 +56,13 @@ private:
 					next_pose_pub,
 					global_planner_pub,
 					expected_pub,
+					ptam_path_pub,
+					gazebo_path_pub,
 					init_pub,
-					sendCommand_pub;
+					sendCommand_pub,
+					start_pub,
+					safe_traj_pub,
+					unsafe_traj_pub;
 
 	ros::ServiceClient expectedPathClient;
 	
@@ -73,8 +81,11 @@ private:
 	sensor_msgs::Joy joy;
 	gazebo_msgs::ModelState initState;
 	geometry_msgs::Pose robotWorldPose;
+	visualization_msgs::Marker vslam_path, gazebo_path;
+	geometry_msgs::Pose startPTAMPose, startRobotPose;
 
-	
+	tf::TransformBroadcaster tfBroadcaster;
+		
 	string MODE;
 	int MAX_EPISODES, MAX_STEPS, MAP;
 	float Q_THRESH;
@@ -86,8 +97,9 @@ private:
 	bool badEstimate, just_init, initialized;
 	float rlRatio;
 	float prevQ; 	
-	float initY;
+	float initY, initX, initZ, initYaw, startX, startY, startYaw;
 	ofstream qFile;
+	bool left, right, up, down;
 
 	PTAMLearner learner; //Q learning agent
 	
