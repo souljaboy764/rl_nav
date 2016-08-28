@@ -18,8 +18,6 @@
 
 using namespace std;
 
-#define swap(x,y) (x ^= y), (y ^= x), (x ^= y)
-
 pthread_mutex_t JoystickNode::pose_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t JoystickNode::pointCloud_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t JoystickNode::ptamInfo_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -31,7 +29,7 @@ pthread_mutex_t JoystickNode::globalPlanner_mutex = PTHREAD_MUTEX_INITIALIZER;
 JoystickNode::JoystickNode()
 {
 	srand (time(NULL));
-	vel_pub = nh.advertise<geometry_msgs::Twist>("/mobile_base/commands/velocity",1);
+	vel_pub = nh.advertise<geometry_msgs::Twist>("/cmd_vel",1);
 	planner_pub = nh.advertise<std_msgs::Float32MultiArray>("/planner/input",1);
 	global_planner_pub = nh.advertise<std_msgs::Empty>("/planner/input/global",1);
 	planner_reset_pub = nh.advertise<std_msgs::Empty>("/planner/reset",1);
@@ -393,8 +391,8 @@ void JoystickNode::joyCb(const sensor_msgs::JoyPtr joyPtr)
 	}
 	else if((fabs(joyPtr->axes[LV])>0.009 or fabs(joyPtr->axes[RH])>0.009) and !state)
 	{
-		command.linear.x = joyPtr->axes[LV];
-		command.angular.z = joyPtr->axes[RH];
+		command.linear.x = joyPtr->axes[LV]*0.1;
+		command.angular.z = joyPtr->axes[RH]*0.1;
 		vel_pub.publish(command);
 	}
 	joy = *joyPtr;
@@ -488,9 +486,7 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 					episodeList.clear();
 					rlRatio+=10;
 					num_steps = 0;
-					//cout<<"rlRatio: "<<rlRatio<<endl;
 					if(rlRatio==90)
-						//ros::shutdown();	
 					{
 						//cout<<"SWITCHING TO TESTING PHASE"<<endl;
 						MODE = "TEST";
@@ -521,26 +517,6 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 				sendCommand_pub.publish(std_msgs::Empty());
 			
 		}
-		else if(state==2)
-		{
-			/*rl_nav::ExpectedPath expectedPath;
-			expectedPathClient.call(expectedPath);
-			vector<float> poses = expectedPath.response.expectedPath.data;
-			vector<float> first(poses.begin(),poses.begin()+12), second(poses.begin()+12,poses.begin()+24), secondIP(poses.begin()+24,poses.end());
-			pcl::PointCloud<pcl::PointXYZ> firstPC = Helper::getPointCloudAtPosition(first), secondPC = Helper::getPointCloudAtPosition(second), currentPC = pointCloud;
-			//vector<pcl::PointXYZ> firstCommon = Helper::pointCloudIntersection(currentPC, firstPC), secondCommon = Helper::pointCloudIntersection(firstPC, secondPC);
-			float Q1, Q2;
-			tie(ignore,ignore,Q1) = learner.getAction(first);//,currentPC));
-			tie(ignore,ignore,Q2) = learner.getAction(secondIP);//,firstPC));
-			//float Q2 = learner.getQ(Helper::getRLInput(secondIP,firstPC));
-			cout<<"Q1: "<<Q1<<" Q2: "<<Q2<<endl;
-			if(Q1>Q_THRESH and Q2>Q_THRESH)
-				global_planner_pub.publish(std_msgs::Empty());
-			else
-				sendCommand_pub.publish(std_msgs::Empty());*/
-		}
-		//else
-		//	planner_reset_pub.publish(std_msgs::Empty());//stop planner*/
 	}
 	
 	pthread_mutex_unlock(&plannerStatus_mutex);

@@ -1,6 +1,5 @@
 from numpy import *
 from geometry_msgs.msg import Twist,Point
-
 def get_bernstein_differentials(t0,t,tf):
 	Bodot=-((5*(1 - (t - t0)/(-t0 + tf))**4)/(-t0 + tf))
 	B1dot=-((20*(t - t0)*(1 - (t - t0)/(-t0 + tf))**3)/(-t0 + tf)**2) + (5*(1 - (t - t0)/(-t0 + tf))**4)/(-t0 + tf)
