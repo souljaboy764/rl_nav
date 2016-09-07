@@ -71,8 +71,17 @@ JoystickNode::JoystickNode()
 	Q_THRESH = 0;
 	up = down = left = right = true;
 	vel_scale = 1.0;
-		
-	qFile.open("qIRLData_SVMtest.txt",ios::app);
+	
+	time_t rawtime;
+	struct tm * timeinfo;
+	char buffer[80];
+
+	time (&rawtime);
+	timeinfo = localtime(&rawtime);
+
+	strftime(buffer,80,"%Y%m%d%H%M%S",timeinfo);
+	
+	qFile.open(string("qData_")+string(buffer)+string(".txt"),ios::app);
 	
 	joy_sub = nh.subscribe("/joy", 100, &JoystickNode::joyCb, this);
 	init_sub = nh.subscribe("/rl/init", 100, &JoystickNode::initCb, this);
@@ -173,6 +182,12 @@ void JoystickNode::ptamStartedCb(const std_msgs::EmptyPtr emptyPtr)
  */
 void JoystickNode::initCb(const std_msgs::EmptyPtr emptyPtr)
 {
+	if(!MODE.compare("TRAIN"))
+	{
+		initState.pose.position.x = -rand()%5 - 1;
+		initState.pose.position.y = rand()%3 + 0.5;
+		initState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, (rand()%360)*PI/180);
+	}
 	std_msgs::String resetString, spaceString;
 	geometry_msgs::Twist twist;
 	initY = 0;
@@ -480,8 +495,9 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 		pthread_mutex_lock(&ptamInfo_mutex);
 		info = ptamInfo;
 		pthread_mutex_unlock(&ptamInfo_mutex);
-		if(!episode.size() or (episode.size() and lastRLInput!=episode.back()))
-		{
+		//if(!episode.size() or (episode.size() and lastRLInput!=episode.back()))
+		//{
+		if(lastRLInput.size()==3)
 			lastRLInput.push_back((num_broken <= 3 and info.trackingQuality)?0:1);
 			for(auto i: lastRLInput)
 				qFile<<i<<'\t';
@@ -496,9 +512,9 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 				qFile<<';';
 			}*/
 			qFile << '\n';
-			episode.push_back(lastRLInput);
-		}
-
+			//episode.push_back(lastRLInput);
+		//}
+		learner.updateQ(lastRLInput,get<1>(learner.getBestQStateAction(lastCommand)));
 		if(num_broken>3 or !info.trackingQuality) 
 		{	
 			cout<<"Breaking after "<<breakCount<< " steps due to action with Q value "<< prevQ<<'\t';
@@ -508,18 +524,19 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 			breakCount = 0;
 			initialized = false;
 			
-			episodeList.push_back(episode);
-			episode.clear();
+			//episodeList.push_back(episode);
+			//episode.clear();
 			num_episodes++;
 
 			if(MODE.compare("MAP") and num_episodes == MAX_EPISODES)// or num_steps >= MAX_STEPS)
 			{
 				if(!MODE.compare("TRAIN"))
 				{
-					learner.episodeUpdate(episodeList);
-					episodeList.clear();
+					//learner.episodeUpdate(episodeList);
+					//episodeList.clear();
 					rlRatio+=10;
 					num_steps = 0;
+					num_episodes = 0;
 					if(rlRatio==90)
 					{
 						//cout<<"SWITCHING TO TESTING PHASE"<<endl;
@@ -570,7 +587,7 @@ void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 	if(initialized)
 	{
 		std_msgs::Float32MultiArray planner_input, trajectories;
-		vector<float> safe_inputs, unsafe_inputs;
+/*		vector<float> safe_inputs, unsafe_inputs;
 		float Q;
 		int safe = 0, unsafe = 0;
 		for(auto input: Helper::getTrajectories())
@@ -593,7 +610,7 @@ void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 		safe_traj_pub.publish(trajectories);
 		trajectories.data = unsafe_inputs;
 		unsafe_traj_pub.publish(trajectories);
-		cout<<"SAFE SIZE "<<safe<<endl;
+		cout<<"SAFE SIZE "<<safe<<endl;*/
 		//incremental training epsilon greedy
 		if(!MODE.compare("TRAIN"))
 			tie(lastCommand, lastRLInput, prevQ) = learner.getEpsilonGreedyStateAction(rlRatio,lastCommand);

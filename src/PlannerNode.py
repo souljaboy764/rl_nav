@@ -35,15 +35,15 @@ class PLanner2D(object):
 		if(self.map==1):
 			self.points = [4.0,7.0,0.0,14.0]
 			self.goal = [6.0, 2.0,-tan(pi/4.0),28.0] #map 1
+		elif(self.map==2):
+			self.points = [2.5,5.5,tan(pi/4.0),14.0]
+			self.goal = [7.0,6.5,0.0,28.0] #map 2
 		elif(self.map==3):
 			self.points = [4.0,4.0,tan(pi/4.0),14.0]
-			self.goal = [7.0,7.0,0.0,28.0] #map 2
-		elif(self.map==4):
-			self.points = [[-1.5,3.0,0.0,12.0], [1.5,-3.0,0.0,9.0]]
-			self.goal = [[0.0,0.0,-tan(1.275),18.0],[3.5,3.5,tan(1.275),18.0]]
-		# else:
-		# self.goal = []
-		# self.points = []
+			self.goal = [7.0,7.0,0.0,28.0] #map 3
+		else:
+			self.goal = []
+			self.points = []
 		
 		self.robotState = Pose()
 		self.robotPTAMPose = Pose()
@@ -230,7 +230,7 @@ class PLanner2D(object):
 		self.vel_pub.publish(Twist())
 		self.vel_pub.publish(Twist())
 		status.data = "DONE"
-		rospy.Rate(1).sleep()
+		#rospy.Rate(1).sleep()
 		self.status_pub.publish(status)
 
 	#def commandRobot(self,event):
