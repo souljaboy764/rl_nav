@@ -247,9 +247,9 @@ void JoystickNode::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr pose
 			vslam_path.points.clear();
 			startRobotPose = robotWorldPose;
 			startPTAMPose = pose.pose.pose;
-			/*if(state==1)
+			if(state==1)
 				sendCommand_pub.publish(std_msgs::Empty());
-			else if(state==2)
+			/*else if(state==2)
 				global_planner_pub.publish(std_msgs::Empty());*/
 		}
 	}
