@@ -204,13 +204,17 @@ def get_coeffs_points(inp,to,tf,points):
 	return [xo,x1,x2,x3,x4,x5,ko,k1,k2,k3,k4,kf]
 
 
-def get_coeffs(inp,to,tf):
+def get_coeffs(inp,to,tf,points = []):
 
 	[xo,yo,ko,xf,yf,kf,xdoto,xddoto,xdotf,kdoto,kddoto,kdotf] = inp	
-
-	xc1=((xf+xo)/2.0)
-	yc1=((yf+yo)/2.0)
-	tc=to+0.5*(tf-to)
+	if points==[]:
+		xc1=((xf+xo)/2.0)
+		yc1=((yf+yo)/2.0)
+		tc=to+0.5*(tf-to)
+	else:
+		xc1 = points[0]
+		yc1 = points[1]
+		tc = points[-1]
 
 
 

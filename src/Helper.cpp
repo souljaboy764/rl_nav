@@ -124,7 +124,11 @@ bool Helper::inLimits(float x, float y)
 	if(MAP==1)
 		return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and (x<3.6 or x>4.4 or (x>=3.6 and x<=4.4 and y>6.4)); // map 1
 	if(MAP==2)
-		return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and ((x<2.9 or x>5.1) and (y<3.1 or y>4.9)); // map 2
+		return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and (x<2.6 or y>5.4); // map 1
+	if(MAP==3)
+		return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and ((x<2.9 or x>5.1) and (y<3.1 or y>4.9)); // map 3
+	if(MAP==4)
+		return x>-3.6 and y > -3.6 and x < 4.1 and y < 4.1 and (x<-1.1 or x>-1.1 or ((x>=-1.1 or x<=-1.1 and y>1.9) and (x>=1.1 or x<=1.1 and y<-1.9))) and not(x<-3 and y>3); // map 4
 	if(MAP==-1)
 		return x>=-6 and x<=0 and y>=-1 and y<=3; //training map
 	return true;
@@ -213,7 +217,6 @@ vector<vector<vector<int> > > Helper::readFeatureExpectation(string fileName)
 					num_episodes++;
 				}
 				episode.clear();
-				cout << num_episodes << "\t" << episodeList.size() << "\t" << dir << "\t" << angle << "\t" << fov << "\t" << status <<endl;
 			}
 		}
 	}

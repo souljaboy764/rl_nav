@@ -127,6 +127,7 @@ CommandStateActionQ PTAMLearner::getThresholdedClosestAngleStateAction(float qTh
 		return getBestQStateAction(lastCommand);
 	else
 	{
+		cout<<"THRESHOLDED SIZE "<<potentialInputs.size()<<endl;
 		CommandStateActionQ result = potentialInputs[rand()%potentialInputs.size()];
 		float currentAngle = Helper::getPoseOrientation(robotWorldPose.orientation)[2], min_diff = numeric_limits<float>::infinity(), angle_diff;
 		

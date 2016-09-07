@@ -44,7 +44,9 @@ private:
 					globalPoints_sub,
 					init_sub,
 					sendCommand_sub,
-					ptamStart_sub;
+					ptamStart_sub,
+					cam_pose_sub,
+					waypoint_sub;
 
 	// Publishers
 	ros::Publisher  vel_pub,
@@ -62,7 +64,10 @@ private:
 					sendCommand_pub,
 					start_pub,
 					safe_traj_pub,
-					unsafe_traj_pub;
+					unsafe_traj_pub,
+					gazebo_pose_pub,
+					ptam_pose_pub,
+					ptam_pc_pub;
 
 	ros::ServiceClient expectedPathClient;
 	
@@ -76,13 +81,13 @@ private:
 	
 	geometry_msgs::PoseWithCovarianceStamped pose;
 	geometry_msgs::Twist vel;
-	pcl::PointCloud<pcl::PointXYZ> pointCloud;
+	pcl::PointCloud<pcl::PointXYZRGB> pointCloud;
 	ptam_com::ptam_info ptamInfo;
 	sensor_msgs::Joy joy;
 	gazebo_msgs::ModelState initState;
 	geometry_msgs::Pose robotWorldPose;
 	visualization_msgs::Marker vslam_path, gazebo_path;
-	geometry_msgs::Pose startPTAMPose, startRobotPose;
+	geometry_msgs::Pose startPTAMPose, startRobotPose, waypointPose;
 
 	tf::TransformBroadcaster tfBroadcaster;
 		
@@ -100,13 +105,15 @@ private:
 	float initY, initX, initZ, initYaw, startX, startY, startYaw;
 	ofstream qFile;
 	bool left, right, up, down;
+	float vel_scale;
 
 	PTAMLearner learner; //Q learning agent
 	
 	//Callback Funtions
 	void poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr);
+	void camPoseCb(const geometry_msgs::PoseWithCovarianceStampedPtr camPosePtr);
 	void joyCb(const sensor_msgs::JoyPtr joyPtr);
-	void pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPtr);	
+	void pointCloudCb(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr pointCloudPtr);	
 	void ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr);	
 	void plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr);	
 	void gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr);
@@ -114,6 +121,7 @@ private:
 	void initCb(const std_msgs::EmptyPtr emptyPtr);
 	void sendCommandCb(const std_msgs::EmptyPtr emptyPtr);
 	void ptamStartedCb(const std_msgs::EmptyPtr emptyPtr);
+	void waypointCb(const geometry_msgs::PoseStampedPtr waypointPosePtr);
 
 public:
 	JoystickNode();
