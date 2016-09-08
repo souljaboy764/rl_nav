@@ -64,16 +64,18 @@ CommandStateActionQ PTAMLearner::getAction(vector<float> input)
 
 CommandStateActionQ PTAMLearner::getBestQStateAction(vector<float> lastCommand)
 {
+	cout<<"getBestQStateAction start"<<endl;
 	if(lastBestQStateAction!=nullTuple)
 		return lastBestQStateAction;
-
+	cout<<"lastBestQStateAction not null"<<endl;
 	vector<CommandStateActionQ> result;
 	int index;
 	float maxQ = -numeric_limits<float>::infinity();  //init max Q to negative infinity
 	float Q;
+	cout<<"getting actions"<<endl;
 	getActions();
 	//vector<vector<float> > inputs = Helper::getTrajectories();
-	
+	cout<<"evaluating actions"<<endl;
 	for(auto input : possibleTrajectories)
 	{	
 		vector<float> inp = get<0>(input);
@@ -90,11 +92,12 @@ CommandStateActionQ PTAMLearner::getBestQStateAction(vector<float> lastCommand)
 			index = result.size()-1;
 		}
 	}
-
+	cout<<"finished evaluating actions"<<endl;
 	if(maxQ == -numeric_limits<float>::infinity())
 		index = rand()%possibleTrajectories.size();
-	
+	cout<<"setting lastBestQStateAction"<<endl;
 	lastBestQStateAction = result[index];
+	cout<<"getBestQStateAction end"<<endl;
 	return lastBestQStateAction;
 }
 

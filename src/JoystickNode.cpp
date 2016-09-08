@@ -52,8 +52,11 @@ JoystickNode::JoystickNode()
 
 	expectedPathClient = nh.serviceClient<rl_nav::ExpectedPath>("/planner/global/expected_path");
 	
-	
-	rlRatio = 10;
+	ifstream ratioFile("ratioFile.txt");
+	ratioFile >> rlRatio >> num_episodes;
+	if(!rlRatio)
+		rlRatio = 10;
+	ratioFile.close();
 	episodeList = Helper::readFeatureExpectation("tempfeFile.txt");
 	state = 0;
 	breakCount = 0;
@@ -69,23 +72,23 @@ JoystickNode::JoystickNode()
 	up = down = left = right = true;
 	vel_scale = 1.0;
 	
-	time_t rawtime;
+/*	time_t rawtime;
 	struct tm * timeinfo;
 	char buffer[80];
 
 	time (&rawtime);
 	timeinfo = localtime(&rawtime);
 
-	strftime(buffer,80,"%Y%m%d%H%M%S",timeinfo);
+	strftime(buffer,80,"%Y%m%d%H%M%S",timeinfo);*/
 	
-	qFile.open(string("qData_")+string(buffer)+string(".txt"),ios::app);
+	qFile.open(string("qData.txt"),ios::app);
 	
 	joy_sub = nh.subscribe("/joy", 100, &JoystickNode::joyCb, this);
 	init_sub = nh.subscribe("/rl/init", 100, &JoystickNode::initCb, this);
 	sendCommand_sub = nh.subscribe("/rl/sendCommand", 100, &JoystickNode::sendCommandCb, this);
 	pose_sub = nh.subscribe("/vslam/pose_world",100, &JoystickNode::poseCb, this);
 	cam_pose_sub = nh.subscribe("/vslam/pose",100, &JoystickNode::camPoseCb, this);
-	pointCloud_sub = nh.subscribe("/vslam/pc2", 100, &JoystickNode::pointCloudCb, this);
+	//pointCloud_sub = nh.subscribe("/vslam/pc2", 100, &JoystickNode::pointCloudCb, this);
 	ptamInfo_sub = nh.subscribe("/vslam/info", 100, &JoystickNode::ptamInfoCb, this);
 	ptamStart_sub = nh.subscribe("/vslam/started", 100, &JoystickNode::ptamStartedCb, this);
 	plannerStatus_sub = nh.subscribe("/planner/status", 100, &JoystickNode::plannerStatusCb, this);
@@ -139,7 +142,7 @@ JoystickNode::JoystickNode()
 	if(!MODE.compare("TRAIN") or !MODE.compare("TEST"))
 	{
 		state = 1;
-		//init_pub.publish(std_msgs::Empty());
+		init_pub.publish(std_msgs::Empty());
 	}
 	else if(!MODE.compare("MAP"))
 		state = 2;
@@ -159,6 +162,10 @@ JoystickNode::~JoystickNode()
 	p_nh.deleteParam("init_Y");
 	p_nh.deleteParam("map");
 	p_nh.deleteParam("vel_scale");
+
+	ofstream ratioFile("ratioFile.txt");
+	ratioFile << ((rlRatio==90)?10:rlRatio) << " " << num_episodes << endl;
+	ratioFile.close();
 }
 
 void JoystickNode::ptamStartedCb(const std_msgs::EmptyPtr emptyPtr)
@@ -530,7 +537,8 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 					if(rlRatio==90)
 					{
 						//cout<<"SWITCHING TO TESTING PHASE"<<endl;
-						MODE = "TEST";
+						//MODE = "TEST";
+						ros::shutdown();
 					}
 				}
 				else if(!MODE.compare("TEST"))
