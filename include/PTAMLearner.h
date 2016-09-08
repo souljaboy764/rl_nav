@@ -2,6 +2,7 @@
 #include <iostream>
 #include <utility>
 #include <tuple>
+#include <cmath>
 
 #include <gazebo_msgs/ModelStates.h>
 #include <pcl_ros/point_cloud.h>
@@ -12,6 +13,7 @@
 using namespace std;
 
 typedef tuple<vector<float>, vector<int>, float> CommandStateActionQ;
+static CommandStateActionQ nullTuple = make_tuple(vector<float>(), vector<int>(), -numeric_limits<float>::infinity());
 
 class PTAMLearner : public SarsaLearner, public SupervisedLearner
 {
@@ -22,7 +24,8 @@ private:
 
 	geometry_msgs::Pose robotWorldPose;
 	pcl::PointCloud<pcl::PointXYZ> currentPointCloud;
-	
+	vector<CommandStateActionQ> possibleTrajectories;
+	CommandStateActionQ lastBestQStateAction;
 	void gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr);
 	void pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPtr);	
 
@@ -39,4 +42,6 @@ public:
 	CommandStateActionQ getSLRandomStateAction();
 	CommandStateActionQ getBestSLStateAction(vector<float> lastCommand);
 	vector<CommandStateActionQ> getSLActions();
+	void clear();
+	void getActions();
 };	

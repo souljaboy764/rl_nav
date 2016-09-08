@@ -138,11 +138,11 @@ JoystickNode::JoystickNode()
 	p_nh.getParam("vel_scale", vel_scale);
 	
 	initState.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, initYaw);
-
+	learner.clear();
 	if(!MODE.compare("TRAIN") or !MODE.compare("TEST"))
 	{
 		state = 1;
-		init_pub.publish(std_msgs::Empty());
+		//init_pub.publish(std_msgs::Empty());
 	}
 	else if(!MODE.compare("MAP"))
 		state = 2;
@@ -632,10 +632,10 @@ void JoystickNode::sendCommandCb(std_msgs::EmptyPtr emptyPtr)
 		else
 			tie(lastCommand, lastRLInput, prevQ) = learner.getSLRandomStateAction();
 		num_steps++;
-		next_pose_pub.publish(Helper::getPoseFromInput(lastCommand, pose));
+		//next_pose_pub.publish(Helper::getPoseFromInput(lastCommand, pose));
 		
 		planner_input.data = lastCommand;
-
+		learner.clear();
 		planner_pub.publish(planner_input);//send input to planner
 	}	
 }

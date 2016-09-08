@@ -15,6 +15,7 @@ PTAMLearner::PTAMLearner()
 	pointCloud_sub = nh.subscribe("/vslam/frame_points", 100, &PTAMLearner::pointCloudCb, this);
 	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &PTAMLearner::gazeboModelStatesCb, this);
 	srand (time(NULL));
+	lastBestQStateAction = nullTuple;
 }
 
 void PTAMLearner::gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr)
@@ -31,6 +32,12 @@ void PTAMLearner::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCl
 	pthread_mutex_unlock(&pointCloud_mutex);
 }
 
+void PTAMLearner::getActions()
+{
+	if(!possibleTrajectories.size())
+		for(auto trajectory : Helper::getTrajectories())
+			possibleTrajectories.push_back(getAction(trajectory));
+}
 
 CommandStateActionQ PTAMLearner::getAction(vector<float> input)
 {
@@ -57,21 +64,26 @@ CommandStateActionQ PTAMLearner::getAction(vector<float> input)
 
 CommandStateActionQ PTAMLearner::getBestQStateAction(vector<float> lastCommand)
 {
+	if(lastBestQStateAction!=nullTuple)
+		return lastBestQStateAction;
+
 	vector<CommandStateActionQ> result;
 	int index;
 	float maxQ = -numeric_limits<float>::infinity();  //init max Q to negative infinity
 	float Q;
-	vector<vector<float> > inputs = Helper::getTrajectories();
+	getActions();
+	//vector<vector<float> > inputs = Helper::getTrajectories();
 	
-	for(vector<vector<float> >::iterator inp = inputs.begin(); inp!=inputs.end(); ++inp)
+	for(auto input : possibleTrajectories)
 	{	
-		if(lastCommand.size() and 
-			(	!(lastCommand[12]+(*inp)[12]) and 
-				!(lastCommand[5] + (*inp)[5]) and 
-				!(19*fabs(lastCommand[5])/30.0 - 19*fabs((*inp)[5])/30.0)))
+		vector<float> inp = get<0>(input);
+		if( lastCommand.size() and 
+			!(lastCommand[12]+inp[12]) and 
+			!(lastCommand[5] + inp[5]) and 
+			!(fabs(lastCommand[5]) - fabs(inp[5])))
 			continue;
-		result.push_back(getAction(*inp));
-		Q = get<2>(result.back());
+		result.push_back(input);
+		Q = get<2>(input);
 		if(maxQ<Q)
 		{
 			maxQ = Q;
@@ -80,9 +92,10 @@ CommandStateActionQ PTAMLearner::getBestQStateAction(vector<float> lastCommand)
 	}
 
 	if(maxQ == -numeric_limits<float>::infinity())
-		index = rand()%inputs.size();
+		index = rand()%possibleTrajectories.size();
 	
-	return result[index];
+	lastBestQStateAction = result[index];
+	return lastBestQStateAction;
 }
 
 CommandStateActionQ PTAMLearner::getEpsilonGreedyStateAction(float epsilon, vector<float> lastCommand)
@@ -95,6 +108,8 @@ CommandStateActionQ PTAMLearner::getEpsilonGreedyStateAction(float epsilon, vect
 
 CommandStateActionQ PTAMLearner::getRandomStateAction()
 {
+	if(possibleTrajectories.size())
+		return possibleTrajectories[rand()%possibleTrajectories.size()];
 	vector<vector<float> > trajectories = Helper::getTrajectories();	
 	return getAction(trajectories[rand()%trajectories.size()]);
 }
@@ -116,12 +131,11 @@ CommandStateActionQ PTAMLearner::getThresholdedRandomStateAction(float qThreshol
 CommandStateActionQ PTAMLearner::getThresholdedClosestAngleStateAction(float qThreshold, float nextAngle, vector<float> lastCommand)
 {
 	vector<CommandStateActionQ> potentialInputs;
-	for(auto trajectory : Helper::getTrajectories())
-	{
-		CommandStateActionQ input = getAction(trajectory);
+	getActions();
+	
+	for(auto input : possibleTrajectories)
 		if(get<2>(input) > qThreshold)
 			potentialInputs.push_back(input);
-	}
 	  
 	if(potentialInputs.size()<1)
 		return getBestQStateAction(lastCommand);
@@ -151,15 +165,10 @@ vector<CommandStateActionQ> PTAMLearner::getSLActions()
 		return vector<CommandStateActionQ>();
 
 	vector<CommandStateActionQ> potentialInputs;
-	
-	for(auto trajectory : Helper::getTrajectories())
-	{	
-		CommandStateActionQ input = getAction(trajectory);
-		vector<int> stateAction = get<1>(input);
-
-		if(!predict(stateAction))
+	getActions();
+	for(auto input : possibleTrajectories)
+		if(!predict(get<1>(input)))
 			potentialInputs.push_back(input);
-	}
 	return potentialInputs;
 }	
 
@@ -191,7 +200,6 @@ CommandStateActionQ PTAMLearner::getSLRandomStateAction()
 		return getRandomStateAction();
 
 	vector<CommandStateActionQ> potentialInputs = getSLActions();
-	vector<vector<float> > trajs = Helper::getTrajectories();
 	
 	if(potentialInputs.size())
 		return potentialInputs[rand()%potentialInputs.size()];
@@ -231,4 +239,10 @@ CommandStateActionQ PTAMLearner::getBestSLStateAction(vector<float> lastCommand)
 		return getSLRandomStateAction();
 	
 	return result[index];
+}
+
+void PTAMLearner::clear()
+{
+	possibleTrajectories.clear();
+	lastBestQStateAction = nullTuple;
 }

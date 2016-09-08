@@ -101,21 +101,12 @@ float SarsaLearner::getQ(vector<int> stateAction)
 	return qMatrix[stateDir][stateHead][stateFOV];
 }
 
-/*float SarsaLearner::getReward(vector<float> stateAction)
-{
-	int rew_1 = 0, rew_2 = 0;
-
-	if(stateAction[2] < 5)
-		rew_1 = -10;
-	else if(stateAction[2]<20)
-		rew_1 = -10 + (stateAction[2] - 5)*(stateAction[2] - 5)/22.5;
-
-	rew_2 -= fabs(stateAction[1])/6.0;
-
-	return rew_1 + rew_2;
-}*/
-
 float SarsaLearner::getReward(vector<int> stateAction)
+{
+	return -9.5 + stateAction[2]/2.0 - stateAction[1]/6.0 - 10*stateAction[3];
+}
+
+/*float SarsaLearner::getReward(vector<int> stateAction)
 {
 	vector<float> phi;
 	if(stateAction[0])
@@ -132,7 +123,7 @@ float SarsaLearner::getReward(vector<int> stateAction)
 	phi.push_back(stateAction[2]/STATE_FOV_MAX);
 	phi.push_back(1 - stateAction[3]/2.0);
 	return inner_product(phi.begin(), phi.end(), w.begin(), 0.0);
-}
+}*/
 
 // Function to update Q value
 void SarsaLearner::updateQ(vector<int> stateAction, vector<int> nextStateAction)
