@@ -52,11 +52,8 @@ JoystickNode::JoystickNode()
 
 	expectedPathClient = nh.serviceClient<rl_nav::ExpectedPath>("/planner/global/expected_path");
 	
-	ifstream ratioFile("ratioFile.txt");
-	ratioFile >> rlRatio;
-	ratioFile.close();
-	if(!rlRatio)
-		rlRatio = 10;
+	
+	rlRatio = 10;
 	episodeList = Helper::readFeatureExpectation("tempfeFile.txt");
 	state = 0;
 	breakCount = 0;
@@ -162,13 +159,6 @@ JoystickNode::~JoystickNode()
 	p_nh.deleteParam("init_Y");
 	p_nh.deleteParam("map");
 	p_nh.deleteParam("vel_scale");
-
-	//remove("tempfeFile.txt");
-	//Helper::saveFeatureExpectation(episodeList, "tempfeFile.txt");
-
-	ofstream ratioFile("ratioFile.txt");
-	ratioFile << ((rlRatio==90)?10:rlRatio) << endl;
-	ratioFile.close();
 }
 
 void JoystickNode::ptamStartedCb(const std_msgs::EmptyPtr emptyPtr)
