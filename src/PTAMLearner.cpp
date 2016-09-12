@@ -69,7 +69,7 @@ CommandStateActionQ PTAMLearner::getBestQStateAction(vector<float> lastCommand)
 		return lastBestQStateAction;
 	cout<<"lastBestQStateAction not null"<<endl;
 	vector<CommandStateActionQ> result;
-	int index;
+	int index=-1;
 	float maxQ = -numeric_limits<float>::infinity();  //init max Q to negative infinity
 	float Q;
 	cout<<"getting actions"<<endl;
@@ -93,10 +93,28 @@ CommandStateActionQ PTAMLearner::getBestQStateAction(vector<float> lastCommand)
 		}
 	}
 	cout<<"finished evaluating actions"<<endl;
-	if(maxQ == -numeric_limits<float>::infinity())
-		index = rand()%possibleTrajectories.size();
-	cout<<"setting lastBestQStateAction"<<endl;
-	lastBestQStateAction = result[index];
+	if(maxQ == -numeric_limits<float>::infinity() or !result.size())
+	{
+		cout<<"result size zero"<<endl;
+		if(possibleTrajectories.size())
+		{
+			cout<<"returning random from possibleTrajectories of size "<<possibleTrajectories.size()<<endl;
+			lastBestQStateAction = possibleTrajectories[rand()%possibleTrajectories.size()];
+		}
+		else
+		{
+			cout<<"returning random"<<endl;
+			lastBestQStateAction = nullTuple;
+			return getRandomStateAction();
+		}
+	}	
+
+		
+	else if(index!=-1 and result.size())
+	{
+		cout<<"setting lastBestQStateAction"<<endl;
+		lastBestQStateAction = result[index];
+	}
 	cout<<"getBestQStateAction end"<<endl;
 	return lastBestQStateAction;
 }
@@ -111,9 +129,8 @@ CommandStateActionQ PTAMLearner::getEpsilonGreedyStateAction(float epsilon, vect
 
 CommandStateActionQ PTAMLearner::getRandomStateAction()
 {
-	if(possibleTrajectories.size())
-		return possibleTrajectories[rand()%possibleTrajectories.size()];
 	vector<vector<float> > trajectories = Helper::getTrajectories();	
+	cout<<trajectories.size()<<endl;
 	return getAction(trajectories[rand()%trajectories.size()]);
 }
 

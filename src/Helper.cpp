@@ -129,6 +129,8 @@ bool Helper::inLimits(float x, float y)
 		return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and ((x<2.9 or x>5.1) and (y<3.1 or y>4.9)); // map 3
 	if(MAP==4)
 		return x>-3.6 and y > -3.6 and x < 4.1 and y < 4.1 and (x<-1.1 or x>-1.1 or ((x>=-1.1 or x<=-1.1 and y>1.9) and (x>=1.1 or x<=1.1 and y<-1.9))) and not(x<-3 and y>3); // map 4
+	if(MAP==5)
+		return x>1.2 and y > 0.4 and x < 10.5 and y < 7.6 and (x<3.6 or x>5.4 or (x>=3.6 and x<=5.4 and y>6.4)) and !(x > 7 and x<9 and y>3 and y<5); // rooms
 	if(MAP==-1)
 		return x>=-6 and x<=0 and y>=-1 and y<=3; //training map
 	return true;
@@ -152,16 +154,16 @@ vector<vector<float> > Helper::getTrajectories()
 	
 	for(float i=-num_angles*angle ; i<=num_angles*angle ; i+=angle)
 	{	
-		if(i<0 and !right)
-			continue;
-		if(i>0 and !left)
-			continue;	
 		vector<float> inp = {0.0,0.0,0.0, 
 								 cos(i), sin(i), tan(i),
 								 0.0,0.0,0.0,0.0,0.0,0.0,
 								 1.0,0.0,1.5};
 		if(up)
 		{	
+			if(i<0 and !right)
+				continue;
+			if(i>0 and !left)
+				continue;	
 			x = robotWorldPose.position.x + cos(orientation[2] + i);
 			y = robotWorldPose.position.y + sin(orientation[2] + i);
 			if(inLimits(x,y))// and collisionFree(robotWorldPose.position.x, x, robotWorldPose.position.y, y, i, 1, orientation[2]))
@@ -170,8 +172,13 @@ vector<vector<float> > Helper::getTrajectories()
 
 		if(down)
 		{
+			if(i>0 and !left)
+				continue;
+			if(i<0 and !right)
+				continue;	
 			inp[3] *= -1.0;
-			inp[5] *= -1.0;
+			inp[4] *= -1.0;
+			//inp[5] *= -1.0;
 			inp[12] *= -1.0;
 			x = robotWorldPose.position.x - cos(orientation[2] - i);
 			y = robotWorldPose.position.y - sin(orientation[2] - i);

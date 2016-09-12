@@ -133,7 +133,7 @@ class PLanner2D(object):
 			traj=[]
 			while t<tf:
 				point0,kt0 = getPos(coeffs,to,tf,t,inp[1])
-				point0.x ,point0.y = point0.z, point0.x
+				point0.x ,point0.y = point0.z, inp[-3]*point0.x
 				point0.z = 0
 				traj.append(point0)
 				t = t + 0.1
@@ -230,7 +230,7 @@ class PLanner2D(object):
 		self.vel_pub.publish(Twist())
 		self.vel_pub.publish(Twist())
 		status.data = "DONE"
-		#rospy.Rate(1).sleep()
+		rospy.Rate(1).sleep()
 		self.status_pub.publish(status)
 
 	#def commandRobot(self,event):
@@ -258,16 +258,31 @@ class PLanner2D(object):
 		my_points = self.points[:]
 		print goal 
 		print my_points
-		if(self.map==1 or self.map==2):
-			if pose[0]>=4:
-				points_done = 1
-				goal[-1]=14.0
-				my_points = []
-			else:
-				if pose[1]>=4:
-					my_points[-1]=7.0
-					goal[-1]=21.0
-
+		# if(self.map==1 or self.map==2):
+		# 	if pose[0]>=4:
+		# 		points_done = 1
+		# 		goal[-1]=14.0
+		# 		my_points = []
+		# 	else:
+		# 		if pose[1]>=4:
+		# 			my_points[-1]=7.0
+		# 			goal[-1]=21.0
+		# ps = PoseStamped()
+		# ps.header.stamp = rospy.Time.now()
+		# ps.header.frame_id="world"
+		# if my_points==[]:
+		# 	ps.pose.position.x = goal[0]
+		# 	ps.pose.position.y = goal[1]
+		# 	q = quaternion_from_euler(0,0,arctan(goal[2]))
+		# else:
+		# 	ps.pose.position.x = my_points[0]
+		# 	ps.pose.position.y = my_points[1]
+		# 	q = quaternion_from_euler(0,0,arctan(my_points[2]))
+		# ps.pose.orientation.w = q[3]
+		# ps.pose.orientation.x = q[0]
+		# ps.pose.orientation.y = q[1]
+		# ps.pose.orientation.z = q[2]
+		# self.pose_pub.publish(ps)
 		# elif self.map==4:
 		# 	if pose[0] < -1.5:
 		# 		goal = goal[0:1]
@@ -376,6 +391,7 @@ class PLanner2D(object):
 		self.vel_pub.publish(Twist())
 		self.vel_pub.publish(Twist())
 		status.data = "DONE1"
+		rospy.Rate(2).sleep()
 		self.status_pub.publish(status)
 
 	def sendLookahead(self, req):
