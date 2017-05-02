@@ -36,4 +36,4 @@ Terminal 3: roslaunch rl_nav test.launch
 Press the "start" button on the xbox joystick or publish a message of type "std_msgs/Empty" to /rl/init
 Once PTAM is initialized, press the "A" button on the xbox controller to start testing.
 
-For running the IRL agent, just change the weights in qMatData.txt to the weights in qMatData_SGD.txt and run any of the above. For training the IRL agent, run IRLAgent.py, which will save the final Q values in qRegressor.pkl
+For running the IRL agent, just change the weights in qMatData.txt to the weights in qMatData_SGD.txt and run any of the above. For training the IRL agent, run IRLAgent.py with the data from https://www.dropbox.com/s/qnp8rs92kbmqz1e/qTrain.txt?dl=0 in the same folder as IRLAgent.py, which will save the final Q values in qRegressor.pkl
