@@ -1,0 +1,39 @@
+This is the accompannying code for the paper "SLAM-Safe Planner: Preventing Monocular SLAM Failure using Reinforcement Learning" and "Data driven strategies for Active Monocular SLAM using Inverse Reinforcement Learning"
+
+To run the code, download this repository and a modified version of PTAM from https://github.com/souljaboy764/ethzasl_ptam/ to your catkin workspace and compile it.
+
+For running the agent on maps:
+In the turtlebot_gazebo.launch change the argument "world_file" to the corresponding map world file (map1.world, map2.world, map3.world, corridor.world or rooms.world) and set the corresponding initial positions in joystick.launch
+
+Open 4 new terminals
+Terminal 1: roslaunch rl_nav turtlebot_gazebo.launch
+Terminal 2: roslaunch ptam ptam.launch 
+Terminal 3: roslaunch rl_nav joystick.launch
+Terminal 4: rosrun rviz rviz -d `rospack find rl_nav`/ptam.rviz
+
+Press the "start" button on the xbox joystick or publish a message of type "std_msgs/Empty" to /rl/init
+Once PTAM is initialized, give an intermediate point using the "2D Pose Estimate" button in rviz and give the goal location using "2D Nav Goal"
+
+For traning the agent, 
+In the turtlebot_gazebo.launch change the argument "world_file" to training.world
+
+Open 3 new terminals
+Terminal 1: roslaunch rl_nav turtlebot_gazebo.launch
+Terminal 2: roslaunch ptam ptam.launch 
+Terminal 3: roslaunch rl_nav train.launch
+
+Press the "start" button on the xbox joystick or publish a message of type "std_msgs/Empty" to /rl/init
+Once PTAM is initialized, press the "A" button on the xbox controller to start training.
+
+For testing the agent on steps to breakage,
+In the turtlebot_gazebo.launch change the argument "world_file" to training.world
+
+Open 3 new terminals
+Terminal 1: roslaunch rl_nav turtlebot_gazebo.launch
+Terminal 2: roslaunch ptam ptam.launch 
+Terminal 3: roslaunch rl_nav test.launch
+
+Press the "start" button on the xbox joystick or publish a message of type "std_msgs/Empty" to /rl/init
+Once PTAM is initialized, press the "A" button on the xbox controller to start testing.
+
+For running the IRL agent, just change the weights in qMatData.txt to the weights in qMatData_SGD.txt and run any of the above. For training the IRL agent, run IRLAgent.py, which will save the final Q values in qRegressor.pkl
