@@ -21,6 +21,7 @@ private:
 	ros::NodeHandle nh;
 	ros::Subscriber gazeboModelStates_sub, pointCloud_sub;
 	static pthread_mutex_t gazeboModelState_mutex, pointCloud_mutex;
+	static int MAX_POINT_OVERLAP;
 
 	geometry_msgs::Pose robotWorldPose;
 	pcl::PointCloud<pcl::PointXYZ> currentPointCloud;

@@ -20,7 +20,8 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Quaternion.h>
 #include <ptam_com/ptam_info.h>
-#include <ptam_com/PosePointCloud.h>
+#include <std_msgs/Bool.h>
+#include <ORB_SLAM2/PosePointCloud.h>
 #include <pcl_ros/point_cloud.h>
 #include <gazebo_msgs/ModelStates.h>
 
@@ -56,32 +57,40 @@ class Helper
 
 	static pthread_mutex_t pose_mutex, info_mutex, gazeboModelState_mutex, pointCloud_mutex;
 
-	static geometry_msgs::PoseWithCovarianceStamped pose;
-	static ptam_com::ptam_info ptamInfo;
+	static geometry_msgs::PoseStamped pose;
+	//static ptam_com::ptam_info ptamInfo;
+	static std_msgs::Bool ptamInfo;
 	static geometry_msgs::Pose robotWorldPose;
 	static pcl::PointCloud<pcl::PointXYZ> currentPointCloud;
 
 	ros::NodeHandle nh;
 	ros::Subscriber pose_sub, info_sub, gazeboModelStates_sub, pointCloud_sub;
+	static ros::Publisher next_poses_pub;
 	static ros::ServiceClient posePointCloudClient;
 	static int MAP;
 
-	void poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr);
-	void ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr);	
+	void poseCb(const geometry_msgs::PoseStampedPtr posePtr);
+	//void ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr);	
+	void ptamInfoCb(const std_msgs::BoolPtr ptamInfoPtr);	
 	void gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr);
 	void pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPtr);	
 
 public:
 	Helper();
-	static pcl::PointCloud<pcl::PointXYZ> getPointCloudAtPosition(vector<float> input);
+	static sensor_msgs::PointCloud2 getPointCloud2AtPosition(vector<float> input);
+	static pcl::PointCloud<pcl::PointXYZ> getPCLPointCloudAtPosition(vector<float> input);
 	static vector<double> getPoseOrientation(geometry_msgs::Quaternion quat);
-	static geometry_msgs::PoseStamped getPoseFromInput(vector<float> input, geometry_msgs::PoseWithCovarianceStamped pose);
+	static geometry_msgs::PoseStamped getPoseFromInput(vector<float> input, geometry_msgs::PoseStamped pose);
 	static vector<pcl::PointXYZ> pointCloudIntersection(pcl::PointCloud<pcl::PointXYZ> pointCloudA, pcl::PointCloud<pcl::PointXYZ> pointCloudB);
 	static bool inLimits(float x, float y);
-	static bool collisionFree(float xi, float xf, float yi, float yf, float angle, int dir, double orientation);
 	static vector<vector<float> > getTrajectories();
 	static void saveFeatureExpectation(vector<vector<vector<int> > > episodeList, string fileName);
 	static vector<vector<vector<int> > > readFeatureExpectation(string fileName);
 	
+	static constexpr char* MAP_FRAME_ID = "world";
+	static constexpr char* NAV_FRAME_ID = "world2D";
+	static constexpr char* GAZEBO_FRAME_ID = "base_link";
+    static constexpr char* CAMERA_FRAME_ID = "camera_rgb_optical_frame";
+
 	static bool up, down, left, right;
 };

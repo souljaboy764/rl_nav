@@ -111,7 +111,7 @@
             <script>
               <uri>model://grey_wall/materials/scripts</uri>
               <uri>model://grey_wall/materials/textures</uri>
-              <name>vrc/grey_wall1</name>
+              <name>vrc/grey_wall_design</name>
             </script>
           </material>
         </visual>
@@ -157,7 +157,7 @@
             <script>
               <uri>model://grey_wall/materials/scripts</uri>
               <uri>model://grey_wall/materials/textures</uri>
-              <name>vrc/grey_wall2</name>
+              <name>vrc/grey_wall_triangle</name>
             </script>
           </material>
         </visual>
@@ -249,7 +249,7 @@
             <script>
               <uri>model://grey_wall/materials/scripts</uri>
               <uri>model://grey_wall/materials/textures</uri>
-              <name>vrc/grey_wall3</name>
+              <name>vrc/grey_wall_square</name>
             </script>
           </material>
         </visual>

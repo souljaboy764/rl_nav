@@ -11,6 +11,8 @@ from visualization_msgs.msg import Marker
 from rl_nav.srv import ExpectedPath, ExpectedPathResponse
 from gazebo_msgs.msg import ModelStates
 import tf
+import tf2_ros
+import tf2_geometry_msgs
 import datetime
 import time
 
@@ -50,6 +52,8 @@ class PLanner2D(object):
 		self.robotPTAMWorldPose = Pose()
 		self.goalPose = None
 		self.waypointPose = None
+		self.tf_buffer = tf2_ros.Buffer(rospy.Duration(1200.0)) #tf buffer length
+		self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
 		self.rlSafePath = Marker()
 		self.rlSafePath.id=0
@@ -78,7 +82,7 @@ class PLanner2D(object):
 		self.GlobalPath = Marker()
 		self.GlobalPath.id=0
 		self.GlobalPath.lifetime=rospy.Duration(1)
-		self.GlobalPath.header.frame_id = "/world"
+		self.GlobalPath.header.frame_id = "/world2D"
 		self.GlobalPath.header.stamp = rospy.Time.now()
 		self.GlobalPath.ns = "pointcloud_publisher"
 		self.GlobalPath.action = Marker.ADD
@@ -90,7 +94,7 @@ class PLanner2D(object):
 		self.lookaheadPath = Marker()
 		self.lookaheadPath.id=0
 		self.lookaheadPath.lifetime=rospy.Duration(1)
-		self.lookaheadPath.header.frame_id = "/world"
+		self.lookaheadPath.header.frame_id = "/world2D"
 		self.lookaheadPath.header.stamp = rospy.Time.now()
 		self.lookaheadPath.ns = "pointcloud_publisher"
 		self.lookaheadPath.action = Marker.ADD
@@ -103,7 +107,7 @@ class PLanner2D(object):
 
 		self.goal_sub = rospy.Subscriber("/move_base_simple/goal", PoseStamped, self.receiveGoal)
 		self.waypoint_sub = rospy.Subscriber("/initialpose", PoseWithCovarianceStamped, self.receiveWaypoint)
-		self.ptam_pose_sub = rospy.Subscriber("/vslam/pose_world", PoseWithCovarianceStamped, self.receivePTAMPose)
+		self.ptam_pose_sub = rospy.Subscriber("/vslam/pose_world", PoseStamped, self.receivePTAMPose)
 		self.pose_sub = rospy.Subscriber("/my_pose", PoseStamped, self.receivePose)
 		self.inp_sub = rospy.Subscriber('/planner/input', Float32MultiArray, self.receiveInput)
 		self.inp_mul_sub = rospy.Subscriber('/planner/input/global', Empty, self.receiveInputGlobal)
@@ -133,8 +137,9 @@ class PLanner2D(object):
 			traj=[]
 			while t<tf:
 				point0,kt0 = getPos(coeffs,to,tf,t,inp[1])
-				point0.x ,point0.y = point0.z, inp[-3]*point0.x
-				point0.z = 0
+				# point0.x ,point0.y = point0.z, inp[-3]*point0.x
+				# point0.z = 0
+				point0.x = -inp[-3]*point0.x
 				traj.append(point0)
 				t = t + 0.1
 			traj_list = traj_list + traj
@@ -143,18 +148,28 @@ class PLanner2D(object):
 		return traj_list
 
 	def receiveUnsafeTrajs(self, trajectories):
-		self.rlUnsafePath.pose = self.robotPTAMPose
+		self.rlUnsafePath.pose = self.robotPTAMWorldPose
+		print "UNSAFE", int(trajectories.data[-1])
 		self.rlUnsafePath.points = self.trajjer(trajectories.data)
 		
 
 	def receiveSafeTrajs(self, trajectories):
-		self.rlSafePath.pose = self.robotPTAMPose
+		self.rlSafePath.pose = self.robotPTAMWorldPose
+		print "SAFE", int(trajectories.data[-1])
 		self.rlSafePath.points = self.trajjer(trajectories.data)
 		
 
 	def receivePTAMPose(self, pose):
-		self.robotPTAMWorldPose = pose.pose.pose
+		self.robotPTAMWorldPose = pose.pose
 
+	def receivePose(self, pose):
+		transform = self.tf_buffer.lookup_transform("world2D",
+                                       pose.header.frame_id, #source frame
+                                       rospy.Time(0), #get the tf at first available time
+                                       rospy.Duration(1.0)) #wait for 1 second
+
+		self.robotPTAMPose = tf2_geometry_msgs.do_transform_pose(pose, transform).pose
+		#self.robotPTAMPose = pose.pose
 		self.rlSafePath.header.stamp = rospy.Time.now()
 		self.safe_path_pub.publish(self.rlSafePath)
 
@@ -163,8 +178,6 @@ class PLanner2D(object):
 
 		self.lookahead_path_pub.publish(self.lookaheadPath)
 
-	def receivePose(self, pose):
-		self.robotPTAMPose = pose.pose
 
 	def receiveGoal(self, goalPose):
 		if self.state==0 and self.points!=[]:
@@ -214,7 +227,7 @@ class PLanner2D(object):
 		self.status_pub.publish(status)
 		start_time = datetime.datetime.now()
 		t=to
-		r = rospy.Rate(10)
+		r = rospy.Rate(100)
 		cmd = Twist()
 		while t<tf and self.state==1:
 		
@@ -223,7 +236,7 @@ class PLanner2D(object):
 			cmd.angular.z = inp[-3]*dk
 			self.vel_pub.publish(cmd)
 			r.sleep()
-			t = t + 0.1
+			t = t + 0.01
 			self.status_pub.publish(status)
 		time.sleep(0.3)
 		self.vel_pub.publish(Twist())

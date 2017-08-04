@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include "Helper.h"
+#include <geometry_msgs/PoseArray.h>
 
 using namespace std;
 
@@ -9,16 +10,19 @@ pthread_mutex_t Helper::info_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t Helper::gazeboModelState_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t Helper::pointCloud_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-geometry_msgs::PoseWithCovarianceStamped Helper::pose;
-ptam_com::ptam_info Helper::ptamInfo;
+geometry_msgs::PoseStamped Helper::pose;
+//ptam_com::ptam_info Helper::ptamInfo;
+std_msgs::Bool Helper::ptamInfo;
 geometry_msgs::Pose Helper::robotWorldPose;
 pcl::PointCloud<pcl::PointXYZ> Helper::currentPointCloud;
 ros::ServiceClient Helper::posePointCloudClient;
 int Helper::MAP;
 bool Helper::up, Helper::down, Helper::left, Helper::right;
+ros::Publisher Helper::next_poses_pub;
 Helper::Helper()
 {
-	posePointCloudClient = nh.serviceClient<ptam_com::PosePointCloud>("/vslam/posepointcloud");
+	next_poses_pub = nh.advertise<geometry_msgs::PoseArray>("/my_next_poses",1);
+	posePointCloudClient = nh.serviceClient<ORB_SLAM2::PosePointCloud>("/ORB_SLAM2/posepointcloud");
 	pose_sub = nh.subscribe("/vslam/pose_world",100, &Helper::poseCb, this);
 	info_sub = nh.subscribe("/vslam/info",100, &Helper::ptamInfoCb, this);
 	pointCloud_sub = nh.subscribe("/vslam/frame_points", 100, &Helper::pointCloudCb, this);
@@ -29,14 +33,15 @@ Helper::Helper()
 	p_nh.getParam("map", MAP);
 }
 
-void Helper::poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr)
+void Helper::poseCb(const geometry_msgs::PoseStampedPtr posePtr)
 {
 	pthread_mutex_lock(&pose_mutex);
 	pose = *posePtr;
 	pthread_mutex_unlock(&pose_mutex);
 }
 
-void Helper::ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr)
+//void Helper::ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr)
+void Helper::ptamInfoCb(const std_msgs::BoolPtr ptamInfoPtr)	
 {
 	pthread_mutex_lock(&info_mutex);
 	ptamInfo = *ptamInfoPtr;
@@ -57,10 +62,9 @@ void Helper::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPt
 	pthread_mutex_unlock(&pointCloud_mutex);
 }
 
-pcl::PointCloud<pcl::PointXYZ> Helper::getPointCloudAtPosition(vector<float> input)
+sensor_msgs::PointCloud2 Helper::getPointCloud2AtPosition(vector<float> input)
 {
-	pcl::PointCloud<pcl::PointXYZ> pointCloud;
-	ptam_com::PosePointCloud posePointCloud;
+	ORB_SLAM2::PosePointCloud posePointCloud;
 	
 	//PoseStamped from the new point
 	pthread_mutex_lock(&pose_mutex);
@@ -68,8 +72,13 @@ pcl::PointCloud<pcl::PointXYZ> Helper::getPointCloudAtPosition(vector<float> inp
 	pthread_mutex_unlock(&pose_mutex);
 
 	posePointCloudClient.call(posePointCloud);
-	pcl::fromROSMsg(posePointCloud.response.pointCloud, pointCloud);
-	
+	return posePointCloud.response.pointCloud;
+}
+
+pcl::PointCloud<pcl::PointXYZ> Helper::getPCLPointCloudAtPosition(vector<float> input)
+{
+	pcl::PointCloud<pcl::PointXYZ> pointCloud;
+	pcl::fromROSMsg(Helper::getPointCloud2AtPosition(input), pointCloud);	
 	return pointCloud;
 }
 
@@ -82,14 +91,14 @@ vector<double> Helper::getPoseOrientation(geometry_msgs::Quaternion quat)
 	return {roll, pitch, yaw};
 }
 
-geometry_msgs::PoseStamped Helper::getPoseFromInput(vector<float> input, geometry_msgs::PoseWithCovarianceStamped pose)
+geometry_msgs::PoseStamped Helper::getPoseFromInput(vector<float> input, geometry_msgs::PoseStamped pose)
 {
 	geometry_msgs::PoseStamped p_out;
 	geometry_msgs::Pose currentPose, p, newPose;
 	tf::Quaternion currentQuat;
 	tf::Pose currentTfPose, newTfPose;
 
-	currentPose = pose.pose.pose;
+	currentPose = pose.pose;
 	
 	p.position.z = input[3];
 	p.position.x = -input[4]*input[12];
@@ -128,21 +137,11 @@ bool Helper::inLimits(float x, float y)
 	if(MAP==3)
 		return x>0.4 and y > 0.4 and x < 7.6 and y < 7.6 and ((x<2.9 or x>5.1) and (y<3.1 or y>4.9)); // map 3
 	if(MAP==4)
-		return x>-3.6 and y > -3.6 and x < 4.1 and y < 4.1 and (x<-1.1 or x>-1.1 or ((x>=-1.1 or x<=-1.1 and y>1.9) and (x>=1.1 or x<=1.1 and y<-1.9))) and not(x<-3 and y>3); // map 4
+		return x>-3.6 and y > -3.6 and x < 4.1 and y < 4.1 and (x<-1.9 or x>-1.1 or (x>=-1.9 and x<=-1.1 and y>1.9)) and (x<1.1 or x>1.9 or (x>=1.1 and x<=1.9 and y<-1.9)) and not(x<-3 and y>3); // map 4
 	if(MAP==5)
 		return x>1.2 and y > 0.4 and x < 10.5 and y < 7.6 and (x<3.6 or x>5.4 or (x>=3.6 and x<=5.4 and y>6.4)) and !(x > 7 and x<9 and y>3 and y<5); // rooms
 	if(MAP==-1)
 		return x>=-6 and x<=0 and y>=-1 and y<=3; //training map
-	return true;
-}
-
-bool Helper::collisionFree(float xi, float xf, float yi, float yf, float angle, int dir, double orientation)
-{
-	for(float i=0.05;i<=1;i+=0.05)
-//	for(float x=xi;x!=xf;x+=dir*0.01*cos(orientation + angle))
-//		for(float y=yi;y!=yf;y+=dir*0.01*sin(orientation + angle))
-			if(!inLimits(xi+i*dir*0.01*cos(orientation + angle), yi+i*dir*0.01*cos(orientation + angle)))
-				return false;
 	return true;
 }
 
@@ -151,7 +150,9 @@ vector<vector<float> > Helper::getTrajectories()
 	float angle = PI/90.0, num_angles = 14, x, y;
 	vector<vector<float> > inputs;
 	vector<double> orientation = getPoseOrientation(robotWorldPose.orientation);
-	
+	geometry_msgs::PoseArray poseArray;
+	poseArray.header = Helper::pose.header;
+	poseArray.header.frame_id = "world";
 	for(float i=-num_angles*angle ; i<=num_angles*angle ; i+=angle)
 	{	
 		vector<float> inp = {0.0,0.0,0.0, 
@@ -167,7 +168,10 @@ vector<vector<float> > Helper::getTrajectories()
 			x = robotWorldPose.position.x + cos(orientation[2] + i);
 			y = robotWorldPose.position.y + sin(orientation[2] + i);
 			if(inLimits(x,y))// and collisionFree(robotWorldPose.position.x, x, robotWorldPose.position.y, y, i, 1, orientation[2]))
+			{
+				poseArray.poses.push_back(getPoseFromInput(inp, Helper::pose).pose);
 				inputs.push_back(inp);
+			}
 		}
 
 		if(down)
@@ -183,9 +187,13 @@ vector<vector<float> > Helper::getTrajectories()
 			x = robotWorldPose.position.x - cos(orientation[2] - i);
 			y = robotWorldPose.position.y - sin(orientation[2] - i);
 			if(inLimits(x,y))// and collisionFree(robotWorldPose.position.x, x, robotWorldPose.position.y, y, -i, -1, orientation[2]))
+			{
+				poseArray.poses.push_back(getPoseFromInput(inp, Helper::pose).pose);
 				inputs.push_back(inp);
+			}
 		}
 	}
+	next_poses_pub.publish(poseArray);
 	return inputs;
 }
 

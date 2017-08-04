@@ -9,12 +9,15 @@ using namespace std;
 
 pthread_mutex_t PTAMLearner::gazeboModelState_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t PTAMLearner::pointCloud_mutex = PTHREAD_MUTEX_INITIALIZER;
+int PTAMLearner::MAX_POINT_OVERLAP;
 
 PTAMLearner::PTAMLearner()
 {
 	pointCloud_sub = nh.subscribe("/vslam/frame_points", 100, &PTAMLearner::pointCloudCb, this);
 	gazeboModelStates_sub = nh.subscribe("/gazebo/model_states", 100, &PTAMLearner::gazeboModelStatesCb, this);
 	srand (time(NULL));
+	ros::NodeHandle p_nh("~");
+	p_nh.getParam("MAX_POINT_OVERLAP", MAX_POINT_OVERLAP);
 	lastBestQStateAction = nullTuple;
 }
 
@@ -42,7 +45,7 @@ void PTAMLearner::getActions()
 CommandStateActionQ PTAMLearner::getAction(vector<float> input)
 {
 	vector<int> rl_input;
-	pcl::PointCloud<pcl::PointXYZ> nextPointCloud = Helper::getPointCloudAtPosition(input);
+	pcl::PointCloud<pcl::PointXYZ> nextPointCloud = Helper::getPCLPointCloudAtPosition(input);
 	
 	pthread_mutex_lock(&pointCloud_mutex);
 	vector<pcl::PointXYZ> commonPoints = Helper::pointCloudIntersection(currentPointCloud,nextPointCloud);
@@ -56,7 +59,7 @@ CommandStateActionQ PTAMLearner::getAction(vector<float> input)
 	else
 		rl_input.push_back((int) 19*fabs((del_heading)*180.0/(30*PI)));
 
-	rl_input.push_back((int) min(19,commonPoints.size()/30.0));
+	rl_input.push_back((int) min(19,commonPoints.size()*20.0/((float)MAX_POINT_OVERLAP)));
 
 	return make_tuple(input,rl_input,getQ(rl_input));
 }

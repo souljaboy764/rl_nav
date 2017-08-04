@@ -14,11 +14,13 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/Joy.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Empty.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <ptam_com/ptam_info.h>
+#include <std_msgs/Bool.h>
 #include <pcl_ros/point_cloud.h>
 #include <gazebo_msgs/ModelStates.h>
 #include <gazebo_msgs/ModelState.h>
@@ -56,18 +58,18 @@ private:
 					ptam_com_pub,
 					pose_pub,
 					next_pose_pub,
+					next_pc_pub,
 					global_planner_pub,
 					expected_pub,
 					ptam_path_pub,
 					gazebo_path_pub,
 					init_pub,
 					sendCommand_pub,
-					start_pub,
 					safe_traj_pub,
 					unsafe_traj_pub,
 					gazebo_pose_pub,
-					ptam_pose_pub,
-					ptam_pc_pub;
+					ptam_pc_pub,
+					odom_reset_pub;
 
 	ros::ServiceClient expectedPathClient;
 	
@@ -79,10 +81,11 @@ private:
 	static pthread_mutex_t gazeboModelState_mutex;
 	static pthread_mutex_t globalPlanner_mutex;
 	
-	geometry_msgs::PoseWithCovarianceStamped pose;
+	geometry_msgs::PoseStamped pose;
 	geometry_msgs::Twist vel;
 	pcl::PointCloud<pcl::PointXYZRGB> pointCloud;
-	ptam_com::ptam_info ptamInfo;
+	//ptam_com::ptam_info ptamInfo;
+	std_msgs::Bool ptamInfo;
 	sensor_msgs::Joy joy;
 	gazebo_msgs::ModelState initState;
 	geometry_msgs::Pose robotWorldPose;
@@ -94,6 +97,7 @@ private:
 	string MODE;
 	int MAX_EPISODES, MAX_STEPS, MAP;
 	float Q_THRESH;
+	double INIT_ANGLE;
 	int state, breakCount, num_broken, num_steps, num_episodes;
 	vector<float> lastCommand; //last command sent to the planner
 	vector<int> lastRLInput; //last RL Input
@@ -106,15 +110,17 @@ private:
 	ofstream qFile;
 	bool left, right, up, down;
 	float vel_scale;
+	int num;
 
 	PTAMLearner learner; //Q learning agent
 	
 	//Callback Funtions
-	void poseCb(const geometry_msgs::PoseWithCovarianceStampedPtr posePtr);
+	void poseCb(const geometry_msgs::PoseStampedPtr posePtr);
 	void camPoseCb(const geometry_msgs::PoseWithCovarianceStampedPtr camPosePtr);
 	void joyCb(const sensor_msgs::JoyPtr joyPtr);
 	void pointCloudCb(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr pointCloudPtr);	
-	void ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr);	
+	//void ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr);	
+	void ptamInfoCb(const std_msgs::BoolPtr ptamInfoPtr);	
 	void plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr);	
 	void gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr);
 	void globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPtr);

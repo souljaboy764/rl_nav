@@ -58,7 +58,7 @@ include_directories(
 )
 link_directories(${GAZEBO_LIBRARY_DIRS} )
 
-set(CMAKE_CXX_FLAGS "-std=c++11")
+set(CMAKE_CXX_FLAGS "-std=c++11 -g")
 
 add_executable(rl_nav src/main_controller.cpp src/JoystickNode.cpp src/PTAMLearner.cpp src/SupervisedLearner.cpp src/SarsaLearner.cpp src/Helper.cpp)
 add_dependencies(rl_nav DEPS ${${PROJECT_NAME}_EXPORTED_TARGETS}})
