@@ -325,18 +325,24 @@ void JoystickNode::globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPt
 	pthread_mutex_lock(&ptamInfo_mutex);
 	info = ptamInfo;
 	pthread_mutex_unlock(&ptamInfo_mutex);
-	
-	state = 1;
+	next_pose_pub.publish(Helper::getPoseFromInput(get<0>(step), pose));
+	next_pc_pub.publish(Helper::getPointCloud2AtPosition(get<0>(step)));
+		
+
 	//if(num_broken>3 or !info.trackingQuality)
 	//if(!info.trackingQuality)
 	if(!info.data)
 	{
 		planner_reset_pub.publish(std_msgs::Empty());//stop planner
-		cout<<"UH OH!!!"<<endl;
+		cout<<"UH OH!!!"<<endl<<"Breaking after:\t";
+		for(auto i: get<1>(step))
+			cout<<i<<'\t'; 
+		cout<<Q<<endl;
 	}
 	//else if(!MODE.compare("MAP") and learner.predict(stateAction))
 	else if(!MODE.compare("MAP") and Q < Q_THRESH)
 	{
+		state = 1;
 		cout<<"predicted break "<< prevQ<<endl;
 		for(auto i: get<1>(step))
 			cout<<i<<'\t'; 
@@ -565,7 +571,7 @@ void JoystickNode::plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr)
 			{
 				state = 2;
 				breakCount = 0;
-				//global_planner_pub.publish(std_msgs::Empty());
+				global_planner_pub.publish(std_msgs::Empty());
 			}
 			else
 				sendCommand_pub.publish(std_msgs::Empty());

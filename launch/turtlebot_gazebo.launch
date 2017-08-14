@@ -27,14 +27,12 @@
   <!-- <arg name="x" value="2"/>
   <arg name="y" value="2"/>
   <arg name="Y" value="1.0472"/> 
-  <node pkg="tf" type="static_transform_publisher" name="rgb_base" args="0.0 0.0 0.0 -0.683012925973 0.18301186561 -0.18301186561 0.683012925973 world2D world 1000"/>-->
+  -->
 
 <!--map 2-->
   <!-- <arg name="x" value="1.22755896"/>
   <arg name="y" value="1.76695301"/>
-  <arg name="Y" value="1.282365"/> 
-  <node pkg="tf" type="static_transform_publisher" name="rgb_base" args="0.0 0.0 0.0 -0.699766257748 0.101622755904 -0.101622755904 0.699766257748 world2D world 1000"/>
--->
+  <arg name="Y" value="1.282365"/> -->
 
 
 
@@ -48,8 +46,6 @@
   <arg name="x" value="-3.5"/>
   <arg name="y" value="-3.5"/>
   <arg name="Y" value="1.282365"/>
-  <node pkg="tf" type="static_transform_publisher" name="rgb_base" args="0.0 0.0 0.0 -0.699766257748 0.101622755904 -0.101622755904 0.699766257748 world2D world 1000"/>
-
 
   </include>
 
@@ -57,6 +53,14 @@
     <param name="publish_frequency" type="double" value="30.0" />
   </node>
 
+  <!-- map1, rooms -->
+  <!-- <node pkg="tf" type="static_transform_publisher" name="rgb_base" args="0.0 0.0 0.0 -0.683012925973 0.18301186561 -0.18301186561 0.683012925973 world2D world 1000"/>
+ -->
+  <!-- map2 -->
+  <!-- <node pkg="tf" type="static_transform_publisher" name="rgb_base" args="0.0 0.0 0.0 -0.699766257748 0.101622755904 -0.101622755904 0.699766257748 world2D world 1000"/>
+ -->
+  <!-- corridor -->
+  <node pkg="tf" type="static_transform_publisher" name="rgb_base" args="0.0 0.0 0.0 -0.699766257748 0.101622755904 -0.101622755904 0.699766257748 world2D world 1000"/>
 
 	
 <!--	<node name="rviz" pkg="rviz" type="rviz" args="-d $(find turtlebot_rviz_launchers)/rviz/robot.rviz" />-->
