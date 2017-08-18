@@ -24,7 +24,7 @@
 		<!-- <param name="init_angle" type="double" value="3.14" />	 -->
 		
 		<param name="qThresh" type="double" value="-7" />	
-		<param name="vel_scale" type="double" value="1.0" />	
+		<param name="vel_scale" type="double" value="1" />	
 		<param name="MAX_POINT_OVERLAP" type="int" value="150"/>
 		<!-- map 1 -->
 		<!-- <param name="mode" type="string" value="MAP" />	
@@ -42,18 +42,18 @@
 		<param name="map" type="int" value="2" /> -->
 
 		<!-- map 3 -->
-		<!-- <param name="mode" type="string" value="MAP" />
+<!-- 		<param name="mode" type="string" value="MAP" />
 		<param name="init_x" type="double" value="2" />
 		<param name="init_y" type="double" value="2" />
 		<param name="init_Y" type="double" value="0" />
-		<param name="map" type="int" value="3" /> -->
-
+		<param name="map" type="int" value="3" />
+ -->
 		<!-- corridor map -->
-		<param name="mode" type="string" value="MAP" />
+		<!-- <param name="mode" type="string" value="MAP" />
 		<param name="init_x" type="double" value="-3" />
 		<param name="init_y" type="double" value="-1.81" />
 		<param name="init_Y" type="double" value="1.282365" />
-		<param name="map" type="int" value="4" />
+		<param name="map" type="int" value="4" /> -->
 
 		<!-- training map -->
 		<!-- <param name="init_x" type="double" value="-1" />
@@ -63,11 +63,11 @@
 		 -->
 
 		 <!-- rooms map -->
-		<!-- <param name="mode" type="string" value="MAP" />	
+		<param name="mode" type="string" value="MAP" />	
 		<param name="init_x" type="double" value="2.6" />
 		<param name="init_y" type="double" value="2.6" />
 		<param name="init_Y" type="double" value="1.0472" /> 
-		<param name="map" type="int" value="5" /> -->
+		<param name="map" type="int" value="5" />
 		<!-- <remap from="/cmd_vel_mux/input/teleop" to="/cmd_vel" /> -->
 
 	</node>

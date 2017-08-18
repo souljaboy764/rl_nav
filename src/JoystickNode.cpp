@@ -97,7 +97,7 @@ JoystickNode::JoystickNode()
 
 	vslam_path.id=0;
 	vslam_path.lifetime=ros::Duration(1);
-	vslam_path.header.frame_id = "/world";
+	vslam_path.header.frame_id = "world";
 	vslam_path.header.stamp = ros::Time::now();
 	vslam_path.ns = "pointcloud_publisher";
 	vslam_path.action = visualization_msgs::Marker::ADD;
@@ -110,7 +110,7 @@ JoystickNode::JoystickNode()
 
 	gazebo_path.id=0;
 	gazebo_path.lifetime=ros::Duration(1);
-	gazebo_path.header.frame_id = "/world2D";
+	gazebo_path.header.frame_id = "world2D";
 	gazebo_path.header.stamp = ros::Time::now();
 	gazebo_path.ns = "pointcloud_publisher";
 	gazebo_path.action = visualization_msgs::Marker::ADD;
