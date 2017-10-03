@@ -47,7 +47,6 @@ private:
 					init_sub,
 					sendCommand_sub,
 					ptamStart_sub,
-					cam_pose_sub,
 					waypoint_sub;
 
 	// Publishers
@@ -90,7 +89,7 @@ private:
 	gazebo_msgs::ModelState initState;
 	geometry_msgs::Pose robotWorldPose;
 	visualization_msgs::Marker vslam_path, gazebo_path;
-	geometry_msgs::Pose startPTAMPose, startRobotPose, waypointPose;
+	geometry_msgs::Pose  waypointPose;
 
 	tf::TransformBroadcaster tfBroadcaster;
 		
@@ -106,7 +105,7 @@ private:
 	bool badEstimate, just_init, initialized;
 	float rlRatio;
 	float prevQ; 	
-	float initY, initX, initZ, initYaw, startX, startY, startYaw;
+	float initY, initX, initZ, initYaw;
 	ofstream qFile;
 	bool left, right, up, down;
 	float vel_scale;
@@ -116,7 +115,6 @@ private:
 	
 	//Callback Funtions
 	void poseCb(const geometry_msgs::PoseStampedPtr posePtr);
-	void camPoseCb(const geometry_msgs::PoseWithCovarianceStampedPtr camPosePtr);
 	void joyCb(const sensor_msgs::JoyPtr joyPtr);
 	void pointCloudCb(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr pointCloudPtr);	
 	//void ptamInfoCb(const ptam_com::ptam_infoPtr ptamInfoPtr);	

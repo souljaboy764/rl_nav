@@ -35,6 +35,7 @@ void PTAMLearner::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCl
 	pthread_mutex_unlock(&pointCloud_mutex);
 }
 
+//convert all the possible trajectories into state-action format and store them
 void PTAMLearner::getActions()
 {
 	if(!possibleTrajectories.size())
@@ -42,6 +43,7 @@ void PTAMLearner::getActions()
 			possibleTrajectories.push_back(getAction(trajectory));
 }
 
+//convert a given bernstein input relative to the robot camera frame into a state-action pair and get the Q value
 CommandStateActionQ PTAMLearner::getAction(vector<float> input)
 {
 	vector<int> rl_input;
@@ -64,7 +66,7 @@ CommandStateActionQ PTAMLearner::getAction(vector<float> input)
 	return make_tuple(input,rl_input,getQ(rl_input));
 }
 
-
+//returns the state-action with the highest Q value except the previously executed command so that it doesn't redo it
 CommandStateActionQ PTAMLearner::getBestQStateAction(vector<float> lastCommand)
 {
 	cout<<"getBestQStateAction start"<<endl;
@@ -122,6 +124,7 @@ CommandStateActionQ PTAMLearner::getBestQStateAction(vector<float> lastCommand)
 	return lastBestQStateAction;
 }
 
+//epsilon greedy policy
 CommandStateActionQ PTAMLearner::getEpsilonGreedyStateAction(float epsilon, vector<float> lastCommand)
 {
 	if((rand() % 100) < epsilon)
@@ -130,6 +133,7 @@ CommandStateActionQ PTAMLearner::getEpsilonGreedyStateAction(float epsilon, vect
 		return getRandomStateAction();
 }
 
+//random policy
 CommandStateActionQ PTAMLearner::getRandomStateAction()
 {
 	vector<vector<float> > trajectories = Helper::getTrajectories();	
@@ -137,6 +141,7 @@ CommandStateActionQ PTAMLearner::getRandomStateAction()
 	return getAction(trajectories[rand()%trajectories.size()]);
 }
 
+//thresholded random, i.e. returns an action with a Q value higher than qThreshold
 CommandStateActionQ PTAMLearner::getThresholdedRandomStateAction(float qThreshold, int maxIters)
 {
 	CommandStateActionQ result;
@@ -166,6 +171,7 @@ CommandStateActionQ PTAMLearner::getThresholdedClosestAngleStateAction(float qTh
 	{
 		cout<<"THRESHOLDED SIZE "<<potentialInputs.size()<<endl;
 		CommandStateActionQ result = potentialInputs[rand()%potentialInputs.size()];
+		//need to change this to take the SLAM pose
 		float currentAngle = Helper::getPoseOrientation(robotWorldPose.orientation)[2], min_diff = numeric_limits<float>::infinity(), angle_diff;
 		
 		for(auto input : potentialInputs)
@@ -182,6 +188,7 @@ CommandStateActionQ PTAMLearner::getThresholdedClosestAngleStateAction(float qTh
 	}
 }
 
+//get supervised learner actions
 vector<CommandStateActionQ> PTAMLearner::getSLActions()
 {
 	if(!slValid)
@@ -195,6 +202,7 @@ vector<CommandStateActionQ> PTAMLearner::getSLActions()
 	return potentialInputs;
 }	
 
+////get supervised learner actions with angle closest to nextAngle
 CommandStateActionQ PTAMLearner::getSLClosestAngleStateAction(float nextAngle)
 {
 	if(!slValid)
@@ -264,6 +272,7 @@ CommandStateActionQ PTAMLearner::getBestSLStateAction(vector<float> lastCommand)
 	return result[index];
 }
 
+//lastBestQStateAction is stored so that it doesn't need to be recomputed each time
 void PTAMLearner::clear()
 {
 	possibleTrajectories.clear();

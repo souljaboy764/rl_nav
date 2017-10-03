@@ -33,6 +33,7 @@ Helper::Helper()
 	p_nh.getParam("map", MAP);
 }
 
+//CALLBACKS---------------------------------------------------------------
 void Helper::poseCb(const geometry_msgs::PoseStampedPtr posePtr)
 {
 	pthread_mutex_lock(&pose_mutex);
@@ -61,7 +62,9 @@ void Helper::pointCloudCb(const pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloudPt
 	currentPointCloud = *pointCloudPtr;
 	pthread_mutex_unlock(&pointCloud_mutex);
 }
+//-----------------------------------------------------------------------
 
+//Get ROS pointcloud2 at position relative to camera frame given as bernstein input
 sensor_msgs::PointCloud2 Helper::getPointCloud2AtPosition(vector<float> input)
 {
 	ORB_SLAM2::PosePointCloud posePointCloud;
@@ -75,6 +78,7 @@ sensor_msgs::PointCloud2 Helper::getPointCloud2AtPosition(vector<float> input)
 	return posePointCloud.response.pointCloud;
 }
 
+//Get PCL pointcloud at position relative to camera frame given as bernstein input
 pcl::PointCloud<pcl::PointXYZ> Helper::getPCLPointCloudAtPosition(vector<float> input)
 {
 	pcl::PointCloud<pcl::PointXYZ> pointCloud;
@@ -82,6 +86,7 @@ pcl::PointCloud<pcl::PointXYZ> Helper::getPCLPointCloudAtPosition(vector<float> 
 	return pointCloud;
 }
 
+//Quaternion to RPY
 vector<double> Helper::getPoseOrientation(geometry_msgs::Quaternion quat)
 {
 	double roll, pitch, yaw;
@@ -91,6 +96,7 @@ vector<double> Helper::getPoseOrientation(geometry_msgs::Quaternion quat)
 	return {roll, pitch, yaw};
 }
 
+//Convert bernstein input in camera frame to pose in world frame
 geometry_msgs::PoseStamped Helper::getPoseFromInput(vector<float> input, geometry_msgs::PoseStamped pose)
 {
 	geometry_msgs::PoseStamped p_out;
@@ -117,7 +123,7 @@ geometry_msgs::PoseStamped Helper::getPoseFromInput(vector<float> input, geometr
 	return p_out;
 }
 
-
+//intersection of 2 pointclouds
 vector<pcl::PointXYZ> Helper::pointCloudIntersection(pcl::PointCloud<pcl::PointXYZ> pointCloudA, pcl::PointCloud<pcl::PointXYZ> pointCloudB)
 {
 	vector<pcl::PointXYZ> commonPoints(pointCloudB.width * pointCloudB.height + pointCloudA.width * pointCloudA.height);
@@ -128,6 +134,7 @@ vector<pcl::PointXYZ> Helper::pointCloudIntersection(pcl::PointCloud<pcl::PointX
 	return commonPoints;
 }
 
+//for collision avoidance, can be replaced with any collision avoidance algorithm
 bool Helper::inLimits(float x, float y)
 {
 	if(MAP==1)
@@ -145,6 +152,7 @@ bool Helper::inLimits(float x, float y)
 	return true;
 }
 
+//generate the recovery actions as bernstein inputs
 vector<vector<float> > Helper::getTrajectories()
 {
 	float angle = PI/90.0, num_angles = 14, x, y;
@@ -197,6 +205,7 @@ vector<vector<float> > Helper::getTrajectories()
 	return inputs;
 }
 
+//save episode to file
 void Helper::saveFeatureExpectation(vector<vector<vector<int> > > episodeList, string fileName)
 {
 	ofstream feFile(fileName);
@@ -209,6 +218,7 @@ void Helper::saveFeatureExpectation(vector<vector<vector<int> > > episodeList, s
 		}
 }
 
+//read episode from file
 vector<vector<vector<int> > > Helper::readFeatureExpectation(string fileName)
 {
 	vector<vector<vector<int> > > episodeList = vector<vector<vector<int> > >();
