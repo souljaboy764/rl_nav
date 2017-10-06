@@ -14,6 +14,7 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/Joy.h>
 #include <std_msgs/String.h>
@@ -25,8 +26,13 @@
 #include <gazebo_msgs/ModelStates.h>
 #include <gazebo_msgs/ModelState.h>
 #include <visualization_msgs/Marker.h>
+#include <move_base_msgs/MoveBaseAction.h>
+#include <actionlib_msgs/GoalID.h>
+#include <actionlib/client/simple_action_client.h>
 
 using namespace std;
+
+typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
 class JoystickNode
 {
@@ -47,7 +53,8 @@ private:
 					init_sub,
 					sendCommand_sub,
 					ptamStart_sub,
-					waypoint_sub;
+					waypoint_sub,
+					goal_sub;
 
 	// Publishers
 	ros::Publisher  vel_pub,
@@ -58,17 +65,17 @@ private:
 					pose_pub,
 					next_pose_pub,
 					next_pc_pub,
-					global_planner_pub,
 					expected_pub,
 					ptam_path_pub,
 					gazebo_path_pub,
 					init_pub,
 					sendCommand_pub,
-					safe_traj_pub,
-					unsafe_traj_pub,
+					safe_poses_pub,
+					unsafe_poses_pub,
 					gazebo_pose_pub,
 					ptam_pc_pub,
-					odom_reset_pub;
+					odom_reset_pub,
+					goal_pub;
 
 	ros::ServiceClient expectedPathClient;
 	
@@ -80,7 +87,7 @@ private:
 	static pthread_mutex_t gazeboModelState_mutex;
 	static pthread_mutex_t globalPlanner_mutex;
 	
-	geometry_msgs::PoseStamped pose;
+	geometry_msgs::PoseStamped pose, goalPose;
 	geometry_msgs::Twist vel;
 	pcl::PointCloud<pcl::PointXYZRGB> pointCloud;
 	//ptam_com::ptam_info ptamInfo;
@@ -98,8 +105,7 @@ private:
 	float Q_THRESH;
 	double INIT_ANGLE;
 	int state, breakCount, num_broken, num_steps, num_episodes;
-	vector<float> lastCommand; //last command sent to the planner
-	vector<int> lastRLInput; //last RL Input
+	geometry_msgs::PoseStamped lastPose; //last pose sent to the planner
 	vector<vector<int> > episode;
 	vector<vector<vector<int> > > episodeList;
 	bool badEstimate, just_init, initialized;
@@ -112,6 +118,8 @@ private:
 	int num;
 
 	PTAMLearner learner; //Q learning agent
+
+	MoveBaseClient *actionClient; //actionlib client to handle goals
 	
 	//Callback Funtions
 	void poseCb(const geometry_msgs::PoseStampedPtr posePtr);
@@ -121,11 +129,12 @@ private:
 	void ptamInfoCb(const std_msgs::BoolPtr ptamInfoPtr);	
 	void plannerStatusCb(const std_msgs::StringPtr plannerStatusPtr);	
 	void gazeboModelStatesCb(const gazebo_msgs::ModelStatesPtr modelStatesPtr);
-	void globalNextPoseCb(const std_msgs::Float32MultiArrayPtr arrayPtr);
-	void initCb(const std_msgs::EmptyPtr emptyPtr);
-	void sendCommandCb(const std_msgs::EmptyPtr emptyPtr);
+	void globalNextPoseCb(const geometry_msgs::PoseStampedPtr nextPosePtr);
+	void initCb(const std_msgs::Empty empty);
+	void sendCommandCb(const std_msgs::Empty empty);
 	void ptamStartedCb(const std_msgs::EmptyPtr emptyPtr);
 	void waypointCb(const geometry_msgs::PoseStampedPtr waypointPosePtr);
+	void goalCb(const geometry_msgs::PoseStampedPtr goalPosePtr);
 
 public:
 	JoystickNode();

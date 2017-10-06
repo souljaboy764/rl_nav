@@ -65,7 +65,6 @@ class Helper
 
 	ros::NodeHandle nh;
 	ros::Subscriber pose_sub, info_sub, gazeboModelStates_sub, pointCloud_sub;
-	static ros::Publisher next_poses_pub;
 	static ros::ServiceClient posePointCloudClient;
 	static int MAP;
 
@@ -77,15 +76,16 @@ class Helper
 
 public:
 	Helper();
-	static sensor_msgs::PointCloud2 getPointCloud2AtPosition(vector<float> input);
-	static pcl::PointCloud<pcl::PointXYZ> getPCLPointCloudAtPosition(vector<float> input);
-	static vector<double> getPoseOrientation(geometry_msgs::Quaternion quat);
-	static geometry_msgs::PoseStamped getPoseFromInput(vector<float> input, geometry_msgs::PoseStamped pose);
+	static sensor_msgs::PointCloud2 getPointCloud2AtPosition(geometry_msgs::PoseStamped input);
+	static pcl::PointCloud<pcl::PointXYZ> getPCLPointCloudAtPosition(geometry_msgs::PoseStamped input);
+	static vector<double> Quat2RPY(geometry_msgs::Quaternion quat);
+	static geometry_msgs::PoseStamped getPoseFromInput(geometry_msgs::PoseStamped input, geometry_msgs::PoseStamped pose);
 	static vector<pcl::PointXYZ> pointCloudIntersection(pcl::PointCloud<pcl::PointXYZ> pointCloudA, pcl::PointCloud<pcl::PointXYZ> pointCloudB);
 	static bool inLimits(float x, float y);
-	static vector<vector<float> > getTrajectories();
+	static vector<geometry_msgs::PoseStamped > getPoses();
 	static void saveFeatureExpectation(vector<vector<vector<int> > > episodeList, string fileName);
 	static vector<vector<vector<int> > > readFeatureExpectation(string fileName);
+	static int sign(float x);
 	
 	static constexpr char* MAP_FRAME_ID = "world";
 	static constexpr char* NAV_FRAME_ID = "world2D";
